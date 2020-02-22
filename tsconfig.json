@@ -9,6 +9,11 @@
     "declaration": false,
     "baseUrl": "./",
     "paths":{
+      "*":[
+        "./ts-pbr-renderer/*",
+        "./ts-pbr-renderer/src/*",
+        "*"
+      ]
     },
     "outDir": "build",
     "strict": true,
@@ -20,10 +25,5 @@
     true,
     "call-signature",
     "property-declaration"
-  ],
-  "include": [
-    "./src/**/*",
-    "node_modules/@webgpu/types/dist/index.d.ts",
-    "node_modules/@webgpu/glslang/dist/web-devel/glslang.d.ts"
   ]
 }
