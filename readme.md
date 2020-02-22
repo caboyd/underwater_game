@@ -1,16 +1,6 @@
-# WebGPU Hello Triangle
+# Underwater game
 
-This is a project to implement hello triangle rendering with WebGPU
-
-## [Demo](https://caboyd.github.io/webgpu-hello-triangle/build/index.html)
-
-## Getting Started
-
-### Prerequisites
-- Node 12+
-- Npm
-- Chrome Canary or [WebGPU compatible browser](https://github.com/gpuweb/gpuweb/wiki/Implementation-Status)
-    - The `chrome://flags/#enable-unsafe-webgpu` flag must be enabled.
+This is a project to make a simple game using my ts webgl2 pbr renderer
     
 ### Installing  
 - download/clone repo locally  
