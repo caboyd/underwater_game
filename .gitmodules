@@ -1,0 +1,3 @@
+[submodule "ts-pbr-renderer"]
+	path = ts-pbr-renderer
+	url = https://github.com/caboyd/ts-pbr-renderer.git
