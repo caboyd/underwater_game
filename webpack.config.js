@@ -9,7 +9,6 @@ module.exports = buildConfig = (env, argv) => {
     return {
         entry: {
             index: './src/index.ts',
-            iwo: './ts-pbr-renderer/src/iwo.ts',
         },
         output: {
             path: path.resolve(__dirname, 'dist'),
@@ -19,19 +18,9 @@ module.exports = buildConfig = (env, argv) => {
         },
         optimization: {
             minimize: true,
-            splitChunks: {
-                cacheGroups: {
-                    commons: {
-                        name: 'iwo',
-                        chunks: 'initial',
-                        minChunks: 2,
-                    },
-                },
-            },
+            usedExports: true,
             minimizer: [
-                new TerserPlugin({
-                    test: /\.min\.js$/,
-                }),
+                new TerserPlugin(),
             ],
         },
         plugins: [
