@@ -40,11 +40,11 @@ export default {
             },
         }),
         glslify({
-            //compress removes spaces and new line breaks after keywords like 'else' breaking shaders with braces
+            //compress removes spaces and new line breaks after keywords like 'else' breaking shaders without braces
             compress: false,
         }),
         copy({
-            targets: [{src: "/assets/**/*", dest: output_dir}],
+            targets: [{src: "./assets/**/*", dest: output_dir}],
             // set flatten to false to preserve folder structure
             flatten: false,
         }),
