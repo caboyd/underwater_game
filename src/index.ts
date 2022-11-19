@@ -120,9 +120,9 @@ async function initScene() {
     const h = new HeightMap({x_cells: x_cells, z_cells: z_cells});
     const image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
     const h_mesh = new IWO.Mesh(gl, h);
-    //const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
-    //h_mat.albedo_image = image;
-    const h_mat = new IWO.NormalOnlyMaterial();
+    const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
+    h_mat.albedo_image = image;
+    //const h_mat = new IWO.NormalOnlyMaterial();
 
     for (let i = 0; i < 5; i++) {
         for (let j = 0; j < 5; j++) {
@@ -160,10 +160,33 @@ function drawScene() {
         for (const d of value) d.render(renderer, v, p);
     }
     //grid.render(renderer, v, p);
+    renderer.resetSaveBindings();
 }
 
+let delta = 0;
+let last_now = Date.now();
+let sun_x = 1,
+    sun_z = 1;
+
 function update() {
+    const new_now = Date.now();
+    delta = new_now - last_now;
+    last_now = new_now;
+
+    delta = Math.min(delta, 20);
+
     fps_control.update();
+
+    const a = (Math.PI * new_now) / 6000;
+    //rotate sun
+    sun_x = Math.cos(a) - Math.sin(a);
+    sun_z = Math.sin(a) + Math.cos(a);
+    const pbrShader = renderer.getorCreateShader(IWO.ShaderSource.PBR);
+    pbrShader.use();
+    const pos = vec3.normalize(vec3.create(), [sun_x, sun_z, 2]);
+    //  console.log(pos);
+    pbrShader.setUniform("u_lights[0].position", [pos[0], pos[1], pos[2], 0]);
+
     drawScene();
     requestAnimationFrame(update);
 }
