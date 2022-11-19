@@ -120,9 +120,9 @@ async function initScene() {
     const h = new HeightMap({x_cells: x_cells, z_cells: z_cells});
     const image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
     const h_mesh = new IWO.Mesh(gl, h);
-    const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
-    h_mat.albedo_image = image;
-    //const h_mat = new IWO.NormalOnlyMaterial();
+    //const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
+    //h_mat.albedo_image = image;
+    const h_mat = new IWO.NormalOnlyMaterial();
 
     for (let i = 0; i < 5; i++) {
         for (let j = 0; j < 5; j++) {

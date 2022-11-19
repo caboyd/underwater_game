@@ -28,7 +28,7 @@ export class HeightMap extends Geometry {
         const verts = [];
         const tex_coords = [];
         const indices = [];
-        const normals = [];
+        const normals = Array(this.opt.z_cells * (this.opt.x_cells + 1) * 6).fill(0);
 
         let i = 0;
         for (let z0 = 0; z0 < this.opt.z_cells; ++z0) {
@@ -58,21 +58,61 @@ export class HeightMap extends Geometry {
                 //add 2 triangles for the last 4 verts added
                 if (x0 !== 0) {
                     indices.push(i - 4, i - 3, i - 2, i - 2, i - 3, i - 1);
+                    if (i === 840) console.log(i);
+                    const i1 = (i - 4) * 3;
+                    const i2 = (i - 3) * 3;
+                    const i3 = (i - 2) * 3;
+                    const i4 = (i - 1) * 3;
 
-                    //generate flat shading normals
-                    const a = vec3.fromValues(verts[(i - 4) * 3 + 0], verts[(i - 4) * 3 + 1], verts[(i - 4) * 3 + 2]);
-                    const b = vec3.fromValues(verts[(i - 3) * 3 + 0], verts[(i - 3) * 3 + 1], verts[(i - 3) * 3 + 2]);
-                    const c = vec3.fromValues(verts[(i - 2) * 3 + 0], verts[(i - 2) * 3 + 1], verts[(i - 2) * 3 + 2]);
-                    const ab = vec3.sub(vec3.create(), b, a);
-                    const ac = vec3.sub(vec3.create(), c, a);
-                    const n = vec3.cross(vec3.create(), ab, ac);
-                    vec3.normalize(n, n);
-                    normals.push(...n, ...n);
-                    if (x0 === 1) normals.push(...n, ...n);
+                    //accumulate normals for smooth shading
+                    const a1 = vec3.fromValues(verts[i1], verts[i1 + 1], verts[i1 + 2]);
+                    const b1 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
+                    const c1 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
+                    const ab = vec3.sub(vec3.create(), b1, a1);
+                    const ac = vec3.sub(vec3.create(), c1, a1);
+                    const n1 = vec3.cross(vec3.create(), ab, ac);
+
+                    const a2 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
+                    const b2 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
+                    const c2 = vec3.fromValues(verts[i4], verts[i4 + 1], verts[i4 + 2]);
+                    const ab2 = vec3.sub(vec3.create(), b2, a2);
+                    const ac2 = vec3.sub(vec3.create(), c2, a2);
+                    const n2 = vec3.cross(vec3.create(), ab2, ac2);
+
+                    normals[i3 + 0] += n1[0];
+                    normals[i3 + 1] += n1[1];
+                    normals[i3 + 2] += n1[2];
+
+                    normals[i3 + 0] += n2[0];
+                    normals[i3 + 1] += n2[1];
+                    normals[i3 + 2] += n2[2];
+                    normals[i4 + 0] += n2[0];
+                    normals[i4 + 1] += n2[1];
+                    normals[i4 + 2] += n2[2];
+
+                    if (x0 === 1) {
+                        normals[i1 + 0] += n1[0];
+                        normals[i1 + 1] += n1[1];
+                        normals[i1 + 2] += n1[2];
+                        normals[i2 + 0] += n1[0];
+                        normals[i2 + 1] += n1[1];
+                        normals[i2 + 2] += n1[2];
+                        normals[i2 + 0] += n2[0];
+                        normals[i2 + 1] += n2[1];
+                        normals[i2 + 2] += n2[2];
+                    }
                 }
             }
         }
 
+        //normalize all normals
+        for (let i = 0; i < normals.length - 2; i += 3) {
+            const n = vec3.fromValues(normals[i], normals[i + 1], normals[i + 2]);
+            vec3.normalize(n, n);
+            normals[i] = n[0];
+            normals[i + 1] = n[1];
+            normals[i + 2] = n[2];
+        }
         this.attributes.set(StandardAttribute.Vertex.name, new Float32Array(verts));
         this.attributes.set(StandardAttribute.Tex_Coord.name, new Float32Array(tex_coords));
         this.attributes.set(StandardAttribute.Normal.name, new Float32Array(normals));
