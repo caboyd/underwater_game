@@ -1,6 +1,8 @@
 # Underwater game
 
-This is a project to make a simple game using my ts webgl2 pbr renderer
+This is a project to make a simple game using my renderer [IWO](https://github.com/caboyd/iwo)
+
+View the demo at [https://caboyd.github.io/underwater_game](https://caboyd.github.io/underwater_game)
     
 ### Installing  
 - download/clone repo locally  
