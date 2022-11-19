@@ -44,8 +44,10 @@ export default {
             compress: false,
         }),
         copy({
-            targets: [{src: "./assets/**/*", dest: output_dir}],
-            targets: [{src: ".nojekyll", dest: output_dir}],
+            targets: [
+                {src: "./assets/**/*", dest: output_dir},
+                {src: ".nojekyll", dest: output_dir},
+            ],
             // set flatten to false to preserve folder structure
             flatten: false,
         }),
