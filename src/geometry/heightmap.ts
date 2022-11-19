@@ -24,44 +24,41 @@ export class HeightMap extends Geometry {
     constructor(options?: Partial<HeightMapOptions>) {
         super();
         this.opt = {...DefaultHeightMapOptions, ...options};
+        const x_cells = this.opt.x_cells;
+        const x_cells_plus1 = x_cells + 1;
+        const z_cells = this.opt.z_cells;
         //generate height data
         const verts = [];
         const tex_coords = [];
         const indices = [];
-        const normals = Array(this.opt.z_cells * (this.opt.x_cells + 1) * 6).fill(0);
+        const normals = Array((z_cells + 1) * (x_cells + 1) * 3).fill(0);
 
         let i = 0;
-        for (let z0 = 0; z0 < this.opt.z_cells; ++z0) {
-            const z = (z0 * this.opt.z_width) / this.opt.z_cells;
-            const z1 = ((z0 + 1) * this.opt.z_width) / this.opt.z_cells;
+        for (let z0 = 0; z0 <= z_cells; ++z0) {
+            const z = (z0 * this.opt.z_width) / z_cells;
 
-            for (let x0 = 0; x0 <= this.opt.x_cells; ++x0) {
-                i += 2;
-                const x = (x0 * this.opt.x_width) / this.opt.x_cells;
-                const y =
-                    Math.sin((x * 2 * Math.PI) / this.opt.x_cells) + Math.sin((z * 2 * Math.PI) / this.opt.z_cells);
-                const y1 =
-                    Math.sin((x * 2 * Math.PI) / this.opt.x_cells) + Math.sin((z1 * 2 * Math.PI) / this.opt.z_cells);
+            for (let x0 = 0; x0 <= x_cells; ++x0) {
+                i += 1;
+                const x = (x0 * this.opt.x_width) / x_cells;
+                const y = Math.sin((x * 2 * Math.PI) / x_cells) + Math.sin((z * 2 * Math.PI) / z_cells);
 
                 verts.push(x, y, z);
-                verts.push(x, y1, z1);
 
                 tex_coords.push(
                     (x * this.opt.tex_x_cells) / this.opt.x_width,
                     (z * this.opt.tex_z_cells) / this.opt.z_width,
                 );
-                tex_coords.push(
-                    (x * this.opt.tex_x_cells) / this.opt.x_width,
-                    (z1 * this.opt.tex_z_cells) / this.opt.z_width,
-                );
 
                 //add 2 triangles for the last 4 verts added
-                if (x0 !== 0) {
-                    indices.push(i - 4, i - 3, i - 2, i - 2, i - 3, i - 1);
-                    if (i === 840) console.log(i);
-                    const i1 = (i - 4) * 3;
-                    const i2 = (i - 3) * 3;
-                    const i3 = (i - 2) * 3;
+                if (x0 !== 0 && z0 !== 0) {
+                    //1,2,3
+                    indices.push(i - 2 - x_cells_plus1, i - 2, i - 1 - x_cells_plus1);
+                    //3,2,4
+                    indices.push(i - 1 - x_cells_plus1, i - 2, i - 1);
+
+                    const i1 = (i - 2 - x_cells_plus1) * 3;
+                    const i2 = (i - 2) * 3;
+                    const i3 = (i - 1 - x_cells_plus1) * 3;
                     const i4 = (i - 1) * 3;
 
                     //accumulate normals for smooth shading
