@@ -1,4 +1,5 @@
-name: NodeJS with Webpack
+# prettier-ignore
+name: Build with Rollup and Deploy gh-pages
 
 on:
   push:
@@ -30,6 +31,7 @@ jobs:
         npm install
         npm run build
   deploy:
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
