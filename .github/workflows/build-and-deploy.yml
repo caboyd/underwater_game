@@ -48,6 +48,11 @@ jobs:
         npm install
         npm run build
 
+    - name: Show files
+      uses: Rishabh510/Path-lister-action@master
+      with:
+        path: "docs/"
+        
     - name: Setup Pages
       uses: actions/configure-pages@v2
     
