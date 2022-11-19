@@ -57,7 +57,6 @@ jobs:
       with:
         # Upload entire repository
         path: 'docs/'
-      debug: true
 
     - name: Deploy to GitHub Pages
       id: deployment
