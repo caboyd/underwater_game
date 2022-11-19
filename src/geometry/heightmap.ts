@@ -1,3 +1,4 @@
+import {vec3} from "gl-matrix";
 import {BufferedGeometry, Geometry, GL, StandardAttribute} from "iwo-renderer";
 
 export type HeightMapOptions = {
@@ -27,6 +28,7 @@ export class HeightMap extends Geometry {
         const verts = [];
         const tex_coords = [];
         const indices = [];
+        const normals = [];
 
         let i = 0;
         for (let z0 = 0; z0 < this.opt.z_cells; ++z0) {
@@ -56,12 +58,24 @@ export class HeightMap extends Geometry {
                 //add 2 triangles for the last 4 verts added
                 if (x0 !== 0) {
                     indices.push(i - 4, i - 3, i - 2, i - 2, i - 3, i - 1);
+
+                    //generate flat shading normals
+                    const a = vec3.fromValues(verts[(i - 4) * 3 + 0], verts[(i - 4) * 3 + 1], verts[(i - 4) * 3 + 2]);
+                    const b = vec3.fromValues(verts[(i - 3) * 3 + 0], verts[(i - 3) * 3 + 1], verts[(i - 3) * 3 + 2]);
+                    const c = vec3.fromValues(verts[(i - 2) * 3 + 0], verts[(i - 2) * 3 + 1], verts[(i - 2) * 3 + 2]);
+                    const ab = vec3.sub(vec3.create(), b, a);
+                    const ac = vec3.sub(vec3.create(), c, a);
+                    const n = vec3.cross(vec3.create(), ab, ac);
+                    vec3.normalize(n, n);
+                    normals.push(...n, ...n);
+                    if (x0 === 1) normals.push(...n, ...n);
                 }
             }
         }
 
         this.attributes.set(StandardAttribute.Vertex.name, new Float32Array(verts));
         this.attributes.set(StandardAttribute.Tex_Coord.name, new Float32Array(tex_coords));
+        this.attributes.set(StandardAttribute.Normal.name, new Float32Array(normals));
         this.indices = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
     }
 
@@ -70,6 +84,9 @@ export class HeightMap extends Geometry {
             [StandardAttribute.Vertex.name]: StandardAttribute.Vertex.createAttribute(),
             [StandardAttribute.Tex_Coord.name]: StandardAttribute.Tex_Coord.createAttribute({
                 buffer_index: 1,
+            }),
+            [StandardAttribute.Normal.name]: StandardAttribute.Tex_Coord.createAttribute({
+                buffer_index: 2,
             }),
         };
 
@@ -80,6 +97,7 @@ export class HeightMap extends Geometry {
             buffers: [
                 {buffer: this.attributes.get(StandardAttribute.Vertex.name), target: GL.ARRAY_BUFFER},
                 {buffer: this.attributes.get(StandardAttribute.Tex_Coord.name), target: GL.ARRAY_BUFFER},
+                {buffer: this.attributes.get(StandardAttribute.Normal.name), target: GL.ARRAY_BUFFER},
             ],
         } as BufferedGeometry;
     }

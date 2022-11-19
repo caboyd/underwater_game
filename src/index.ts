@@ -59,7 +59,7 @@ async function initScene() {
     //gl.enable(gl.CULL_FACE);
     //gl.cullFace(gl.BACK);
 
-    const sun_dir = [-0.3, 0, 1];
+    const sun_dir = [-1, 0.8, 1];
     const sun_intensity = 6;
     const sun_color = [(sun_intensity * 254) / 255, (sun_intensity * 238) / 255, (sun_intensity * 224) / 255];
 
@@ -120,8 +120,9 @@ async function initScene() {
     const h = new HeightMap({x_cells: x_cells, z_cells: z_cells});
     const image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
     const h_mesh = new IWO.Mesh(gl, h);
-    const h_mat = new IWO.BasicMaterial([1, 1, 1]);
+    const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
     h_mat.albedo_image = image;
+    //const h_mat = new IWO.NormalOnlyMaterial();
 
     for (let i = 0; i < 5; i++) {
         for (let j = 0; j < 5; j++) {
