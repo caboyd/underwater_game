@@ -1,6 +1,9 @@
 import {glMatrix, mat4, vec3} from "gl-matrix";
 import {HeightMap} from "./geometry/heightmap";
 import * as IWO from "iwo-renderer";
+import {NoiseTexture} from "src/noise/NoiseTexture";
+import {Perlin} from "src/noise/Perlin";
+import {Worley} from "src/noise/Worley";
 
 let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
@@ -117,15 +120,19 @@ async function initScene() {
     const grid_mat = new IWO.GridMaterial();
     grid = new IWO.MeshInstance(plane_mesh, grid_mat);
 
-    const h = new HeightMap({x_cells: x_cells, z_cells: z_cells});
+    const h = new HeightMap({x_cells: x_cells, z_cells: z_cells, tex_x_cells: 1, tex_z_cells: 1});
     const image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
     const h_mesh = new IWO.Mesh(gl, h);
     const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
-    h_mat.albedo_image = image;
+    //h_mat.albedo_image = image;
+    //const noise = new NoiseTexture(gl, 600, 600, [new Perlin(120, 1), new Perlin(30, 1), new Perlin(15, 1)]);
+    const noise = new NoiseTexture(gl, 600, 600, [new Perlin(120, 1), new Worley(7, 1)]);
+    h_mat.albedo_texture = noise.texture;
     //const h_mat = new IWO.NormalOnlyMaterial();
 
-    for (let i = 0; i < 5; i++) {
-        for (let j = 0; j < 5; j++) {
+    const size = 5;
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
             const m = new IWO.MeshInstance(h_mesh, h_mat);
             mat4.translate(m.model_matrix, m.model_matrix, [j * x_cells, 0, i * z_cells]);
             height_map_arr.push(m);
@@ -185,7 +192,7 @@ function update() {
     pbrShader.use();
     const pos = vec3.normalize(vec3.create(), [sun_x, sun_z, 2]);
     //  console.log(pos);
-    pbrShader.setUniform("u_lights[0].position", [pos[0], pos[1], pos[2], 0]);
+    //pbrShader.setUniform("u_lights[0].position", [pos[0], pos[1], pos[2], 0]);
 
     drawScene();
     requestAnimationFrame(update);
