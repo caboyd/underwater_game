@@ -1,9 +1,6 @@
 import {glMatrix, mat4, vec3} from "gl-matrix";
-import {HeightMap} from "./geometry/heightmap";
 import * as IWO from "iwo-renderer";
-import {NoiseTexture} from "src/noise/NoiseTexture";
-import {Perlin} from "src/noise/Perlin";
-import {Worley} from "src/noise/Worley";
+import {HeightMap} from "./heightmap/HeightMap";
 
 let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
@@ -12,7 +9,7 @@ const FOV = 60 as const;
 const view_matrix: mat4 = mat4.create();
 const proj_matrix: mat4 = mat4.create();
 
-const cPos: vec3 = vec3.fromValues(50, 5, 50);
+const cPos: vec3 = vec3.fromValues(50, 0, 50);
 let camera: IWO.Camera;
 
 let grid: IWO.MeshInstance;
@@ -21,7 +18,7 @@ let fps_control: IWO.FPSControl;
 let doodad_map: Map<string, IWO.MeshInstance> = new Map();
 let doodads: Map<string, IWO.MeshInstance[]> = new Map();
 
-let height_map_arr: IWO.MeshInstance[] = [];
+let height_map: HeightMap;
 const x_cells = 20 as const;
 const z_cells = 20 as const;
 
@@ -59,8 +56,8 @@ async function initScene() {
 
     gl.clearColor(173 / 255, 196 / 255, 221 / 255, 1.0);
     gl.enable(gl.DEPTH_TEST);
-    //gl.enable(gl.CULL_FACE);
-    //gl.cullFace(gl.BACK);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
 
     const sun_dir = [-1, 0.8, 1];
     const sun_intensity = 6;
@@ -120,24 +117,8 @@ async function initScene() {
     const grid_mat = new IWO.GridMaterial();
     grid = new IWO.MeshInstance(plane_mesh, grid_mat);
 
-    const h = new HeightMap({x_cells: x_cells, z_cells: z_cells, tex_x_cells: 1, tex_z_cells: 1});
-    const image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
-    const h_mesh = new IWO.Mesh(gl, h);
-    const h_mat = new IWO.PBRMaterial([1, 1, 1], 0.0, 0);
-    //h_mat.albedo_image = image;
-    //const noise = new NoiseTexture(gl, 600, 600, [new Perlin(120, 1), new Perlin(30, 1), new Perlin(15, 1)]);
-    const noise = new NoiseTexture(gl, 600, 600, [new Perlin(120, 1), new Worley(7, 1)]);
-    h_mat.albedo_texture = noise.texture;
-    //const h_mat = new IWO.NormalOnlyMaterial();
-
-    const size = 5;
-    for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-            const m = new IWO.MeshInstance(h_mesh, h_mat);
-            mat4.translate(m.model_matrix, m.model_matrix, [j * x_cells, 0, i * z_cells]);
-            height_map_arr.push(m);
-        }
-    }
+    height_map = new HeightMap(gl);
+    height_map.material.albedo_image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
 
     async function initDoodad(
         file_name: string,
@@ -162,7 +143,9 @@ function drawScene() {
 
     renderer.setPerFrameUniforms(v, p);
 
-    for (const h of height_map_arr) h.render(renderer, v, p);
+    const height_meshes = height_map.getMeshesInRange(camera.position, 2);
+
+    for (const mesh of height_meshes) mesh.render(renderer, v, p);
     for (const [key, value] of doodads) {
         for (const d of value) d.render(renderer, v, p);
     }

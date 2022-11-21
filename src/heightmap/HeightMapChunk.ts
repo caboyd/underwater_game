@@ -1,29 +1,36 @@
 import {vec3} from "gl-matrix";
 import {BufferedGeometry, Geometry, GL, StandardAttribute} from "iwo-renderer";
 
-export type HeightMapOptions = {
+export type HeightMapChunkOptions = {
     x_width: number;
     z_width: number;
     x_cells: number;
     z_cells: number;
     tex_x_cells: number;
     tex_z_cells: number;
+    flip_y: boolean;
 };
 
-const DefaultHeightMapOptions = {
+const DefaultHeightMapChunkOptions = {
     x_width: 20,
     z_width: 20,
     x_cells: 20,
     z_cells: 20,
     tex_x_cells: 5,
     tex_z_cells: 5,
+    flip_y: false,
 };
 
-export class HeightMap extends Geometry {
-    public opt: HeightMapOptions;
-    constructor(options?: Partial<HeightMapOptions>) {
+export class HeightMapChunk extends Geometry {
+    public opt: HeightMapChunkOptions;
+    constructor(
+        x_offset: number,
+        z_offset: number,
+        height_fn: (x: number, z: number) => number,
+        options?: Partial<HeightMapChunkOptions>,
+    ) {
         super();
-        this.opt = {...DefaultHeightMapOptions, ...options};
+        this.opt = {...DefaultHeightMapChunkOptions, ...options};
         const x_cells = this.opt.x_cells;
         const x_cells_plus1 = x_cells + 1;
         const z_cells = this.opt.z_cells;
@@ -40,9 +47,9 @@ export class HeightMap extends Geometry {
             for (let x0 = 0; x0 <= x_cells; ++x0) {
                 i += 1;
                 const x = (x0 * this.opt.x_width) / x_cells;
-                const y = Math.sin((x * 2 * Math.PI) / x_cells) + Math.sin((z * 2 * Math.PI) / z_cells);
+                const y = height_fn(x + x_offset, z + z_offset);
 
-                verts.push(x, y, z);
+                verts.push(x + x_offset, y, z + z_offset);
 
                 tex_coords.push(
                     (x * this.opt.tex_x_cells) / this.opt.x_width,
@@ -51,10 +58,20 @@ export class HeightMap extends Geometry {
 
                 //add 2 triangles for the last 4 verts added
                 if (x0 !== 0 && z0 !== 0) {
-                    //1,2,3
-                    indices.push(i - 2 - x_cells_plus1, i - 2, i - 1 - x_cells_plus1);
-                    //3,2,4
-                    indices.push(i - 1 - x_cells_plus1, i - 2, i - 1);
+                    const v1 = i - 2 - x_cells_plus1;
+                    const v2 = i - 2;
+                    const v3 = i - 1 - x_cells_plus1;
+                    const v4 = i - 1;
+
+                    if (this.opt.flip_y) {
+                        //upside down, cw
+                        indices.push(v1, v3, v2);
+                        indices.push(v2, v3, v4);
+                    } else {
+                        //ccw
+                        indices.push(v1, v2, v3);
+                        indices.push(v2, v4, v3);
+                    }
 
                     const i1 = (i - 2 - x_cells_plus1) * 3;
                     const i2 = (i - 2) * 3;
