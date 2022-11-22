@@ -137,14 +137,14 @@ function drawScene() {
 
     const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
     const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
-    height_map.activateMeshesInView(camera.position, camera.getForward(), fovx, 10, 4);
+    height_map.activateMeshesInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
 
     for (let z = 0; z < height_map.z_chunks; z++) {
         for (let x = 0; x < height_map.x_chunks; x++) {
             const c_mesh = height_map.ceiling_meshes[z][x];
             if (!c_mesh.active) continue;
-            c_mesh.mesh.render(renderer, v, p);
-            height_map.floor_meshes[z][x].mesh.render(renderer, v, p);
+            c_mesh.mesh?.render(renderer, v, p);
+            height_map.floor_meshes[z][x].mesh?.render(renderer, v, p);
         }
     }
 
