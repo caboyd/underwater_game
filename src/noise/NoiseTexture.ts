@@ -1,5 +1,6 @@
 import {Texture2D} from "iwo-renderer";
 import {Noise, NoiseOptions} from "src/noise/Noise";
+import {vec2} from "gl-matrix";
 
 export class NoiseTexture {
     texture: Texture2D;
@@ -24,13 +25,16 @@ export class NoiseTexture {
             }
         }
 
+        const point = vec2.create();
+        const pos = vec2.create();
         for (const noise of noises) {
             for (let y = 0; y < noise.GRID_SIZE; y++) {
                 for (let x = 0; x < noise.GRID_SIZE; x++) {
-                    const point = noise.worleyPoint([x * noise.GRID_SIZE, y * noise.GRID_SIZE], 1);
-                    const px = Math.round(point.pos[0]);
+                    vec2.set(pos, x * noise.GRID_SIZE, y * noise.GRID_SIZE);
+                    noise.worleyPoint(point, pos);
+                    const px = Math.round(point[0]);
                     if (px < 0 || px > texture_width) continue;
-                    const py = Math.round(point.pos[1]);
+                    const py = Math.round(point[1]);
                     if (py < 0 || py > texture_height) continue;
                     data[py * 4 * texture_width + px * 4 + 0] = 255;
                     data[py * 4 * texture_width + px * 4 + 1] = 0;

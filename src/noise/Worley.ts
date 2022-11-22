@@ -4,6 +4,7 @@ import {Noise, NoiseOptions, DefaultNoiseOptions, PositionWithPseudos} from "./N
 const UINT_MAX = 0xffffffff as const;
 
 const temp = vec2.create();
+const temp2 = vec2.create();
 
 export class Worley implements Noise {
     GRID_SIZE: number;
@@ -37,28 +38,19 @@ export class Worley implements Noise {
         return result;
     }
 
-    private worleyPointCell(x_cell: number, y_cell: number, L: number): PositionWithPseudos {
+    private worleyPointCell(out: vec2, x_cell: number, y_cell: number): vec2 {
         const random1 = this.pseudorandom(x_cell, y_cell);
         const random2 = this.xorShift(random1);
-        let random3 = this.xorShift(random2);
 
         const x = (x_cell + this.uintTo01(random1)) * this.GRID_SIZE;
         const y = (y_cell + this.uintTo01(random2)) * this.GRID_SIZE;
-
-        let result: PositionWithPseudos;
-        result = {pos: vec2.fromValues(x, y), psuedo: Array(L)};
-
-        for (let i = 0; i < L; i++) {
-            result.psuedo[i] = this.uintTo01(random3);
-            random3 = this.xorShift(random3);
-        }
-        return result;
+        return vec2.set(out, x, y);
     }
 
-    public worleyPoint(pos: vec2, L: number): PositionWithPseudos {
+    public worleyPoint(out: vec2, pos: vec2): vec2 {
         const x_cell = Math.floor(pos[0] / this.GRID_SIZE);
         const y_cell = Math.floor(pos[1] / this.GRID_SIZE);
-        return this.worleyPointCell(x_cell, y_cell, L);
+        return this.worleyPointCell(out, x_cell, y_cell);
     }
 
     public noise(x: number, y: number): number {
@@ -76,8 +68,8 @@ export class Worley implements Noise {
 
         for (let y_add = -1; y_add <= 1; y_add++) {
             for (let x_add = -1; x_add <= 1; x_add++) {
-                const point = this.worleyPointCell(x_cell + x_add, y_cell + y_add, 0).pos;
-                const distance = vec2.sqrDist(temp, point);
+                this.worleyPointCell(temp2, x_cell + x_add, y_cell + y_add);
+                const distance = vec2.sqrDist(temp, temp2);
                 if (distance < best_dist) {
                     second_dist = best_dist;
                     best_dist = distance;
@@ -91,13 +83,13 @@ export class Worley implements Noise {
     public differenceNMNoise(x: number, y: number, N: number, M: number): number {
         const x_cell = Math.floor(x / this.GRID_SIZE);
         const y_cell = Math.floor(y / this.GRID_SIZE);
-        const pos = vec2.fromValues(x, y);
+        vec2.set(temp, x, y);
 
         let best_dist = Array(M).fill(1e20);
         for (let y_add = -1; y_add <= 1; y_add++) {
             for (let x_add = -1; x_add <= 1; x_add++) {
-                const point = this.worleyPointCell(x_cell + x_add, y_cell + y_add, 0).pos;
-                const distance = vec2.distance(pos, point);
+                this.worleyPointCell(temp2, x_cell + x_add, y_cell + y_add);
+                const distance = vec2.distance(temp, temp2);
                 for (let i = 0; i < M; i++) {
                     if (distance < best_dist[i]) {
                         best_dist.splice(i, 0, distance);
@@ -113,13 +105,13 @@ export class Worley implements Noise {
     public distanceNoise(x: number, y: number): number {
         const x_cell = Math.floor(x / this.GRID_SIZE);
         const y_cell = Math.floor(y / this.GRID_SIZE);
-        const pos = vec2.fromValues(x, y);
+        vec2.set(temp, x, y);
 
         let best_dist = 1.0e20;
         for (let y_add = -1; y_add <= 1; y_add++) {
             for (let x_add = -1; x_add <= 1; x_add++) {
-                const point = this.worleyPointCell(x_cell + x_add, y_cell + y_add, 0).pos;
-                const distance = vec2.distance(pos, point);
+                this.worleyPointCell(temp2, x_cell + x_add, y_cell + y_add);
+                const distance = vec2.distance(temp, temp2);
                 if (distance < best_dist) best_dist = distance;
             }
         }
@@ -130,13 +122,13 @@ export class Worley implements Noise {
     public distanceNNoise(x: number, y: number, N: number): number {
         const x_cell = Math.floor(x / this.GRID_SIZE);
         const y_cell = Math.floor(y / this.GRID_SIZE);
-        const pos = vec2.fromValues(x, y);
+        vec2.set(temp, x, y);
 
         let best_dist = Array(N).fill(1e20);
         for (let y_add = -1; y_add <= 1; y_add++) {
             for (let x_add = -1; x_add <= 1; x_add++) {
-                const point = this.worleyPointCell(x_cell + x_add, y_cell + y_add, 0).pos;
-                const distance = vec2.distance(pos, point);
+                this.worleyPointCell(temp2, x_cell + x_add, y_cell + y_add);
+                const distance = vec2.distance(temp, temp2);
                 for (let i = 0; i < N; i++) {
                     if (distance < best_dist[i]) {
                         best_dist.splice(i, 0, distance);

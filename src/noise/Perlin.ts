@@ -142,7 +142,7 @@ export class Perlin implements Noise {
         return (y - x) * w + x;
     }
 
-    public worleyPoint(pos: vec2, L: number): PositionWithPseudos {
-        return {pos: [-1, -1], psuedo: [0]};
+    public worleyPoint(out: vec2, pos: vec2): vec2 {
+        return vec2.set(out, -1, -1);
     }
 }

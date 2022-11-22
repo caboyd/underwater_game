@@ -1,4 +1,4 @@
-import {MeshInstance, Mesh, PBRMaterial} from "iwo-renderer";
+import {MeshInstance, Mesh, PBRMaterial, IndexBuffer} from "iwo-renderer";
 import {HeightMapChunk, HeightMapChunkOptions} from "src/heightmap/HeightMapChunk";
 import {Perlin} from "src/noise/Perlin";
 import {Worley} from "src/noise/Worley";
@@ -21,6 +21,13 @@ const DefaultHeightMapOptions: HeightMapOptions = {
 type ActiveHeightMapMesh = {
     active: boolean;
     mesh: MeshInstance;
+};
+
+type Result_SBFW = {
+    s: number;
+    b: number;
+    f: number;
+    w: number;
 };
 
 const temp_corners = [vec2.create(), vec2.create(), vec2.create(), vec2.create()];
@@ -56,22 +63,30 @@ export class HeightMap implements HeightMapOptions {
     private init(gl: WebGL2RenderingContext) {
         const perlin = new Perlin(40, 70);
         // const perlin2 = new Perlin(12, 12);
-        const worley = new Worley(30, 0.75);
+        const worley = new Worley(30, 0.5);
         const width = this.chunk_width_x * this.x_chunks;
         const half_width = width / 2;
+        const half_width_vec = vec2.fromValues(half_width, half_width);
+        const xy_vec = vec2.create();
+        const result_sbfw = {s: 0, b: 0, f: 0, w: 0};
 
         const ceiling_func = (x: number, y: number) => {
-            var {s, b, f, w} = calculateHeightVars(x, y);
+            calculateHeightVars(result_sbfw, x, y);
+            const {s, b, f, w} = result_sbfw;
 
             if (s <= 0) return b - 3;
             return b * f + s - (w * w * f) / s;
         };
         const floor_func = (x: number, y: number) => {
-            var {s, b, f, w} = calculateHeightVars(x, y);
+            calculateHeightVars(result_sbfw, x, y);
+            const {s, b, f, w} = result_sbfw;
 
             if (s <= 0) return b + 3;
             return b * f - s + (w * w * f) / s;
         };
+
+        let ceiling_index_buffer: IndexBuffer | undefined;
+        let floor_index_buffer: IndexBuffer | undefined;
 
         for (let z = 0; z < this.z_chunks; z++) {
             this.floor_meshes[z] = [];
@@ -93,21 +108,24 @@ export class HeightMap implements HeightMapOptions {
                 //this.ceiling_chunks[z].push(ceiling_chunk);
                 //this.floor_chunks[z].push(floor_chunk);
 
-                let m = new Mesh(gl, ceiling_chunk);
+                let m = new Mesh(gl, ceiling_chunk, {reuse_index_buffer: ceiling_index_buffer});
+                // if (!ceiling_index_buffer) ceiling_index_buffer = m.index_buffer;
                 this.ceiling_meshes[z].push({mesh: new MeshInstance(m, this.material), active: false});
-                m = new Mesh(gl, floor_chunk);
+                m = new Mesh(gl, floor_chunk, {reuse_index_buffer: floor_index_buffer});
+                // if (!floor_index_buffer) floor_index_buffer = m.index_buffer;
                 this.floor_meshes[z].push({mesh: new MeshInstance(m, this.material), active: false});
             }
         }
 
-        function calculateHeightVars(x: number, y: number) {
+        function calculateHeightVars(result: Result_SBFW, x: number, y: number) {
             //[-35,35]
             const b = perlin.noise(x, y) / 35;
             const w = worley.noise(x, y);
             let s = 0;
             let f = 0;
             //distance to center
-            const d = vec2.dist([x, y], [half_width, half_width]);
+            vec2.set(xy_vec, x, y);
+            const d = vec2.dist(xy_vec, half_width_vec);
 
             if (d > half_width) s = 0; // no tunnls in corners of map
             else if (d > half_width * 0.8)
@@ -117,7 +135,11 @@ export class HeightMap implements HeightMapOptions {
 
             if (d > half_width * 0.4) f = 1.0; // not in cavern
             else f = 0.75 - Math.cos((d / half_width) * 0.4 * Math.PI) * 0.25; // in cavern
-            return {s, b, f, w};
+            result.s = s;
+            result.b = b;
+            result.f = f;
+            result.w = w;
+            return result;
         }
     }
 

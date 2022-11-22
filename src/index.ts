@@ -9,7 +9,7 @@ const FOV = 45 as const;
 const view_matrix: mat4 = mat4.create();
 const proj_matrix: mat4 = mat4.create();
 
-const chunks = 32;
+const chunks = 80;
 
 const cPos: vec3 = vec3.fromValues((chunks * 6.25) / 2, 0, (chunks * 6.25) / 2);
 let camera: IWO.Camera;
@@ -149,33 +149,19 @@ function drawScene() {
     // for (const [key, value] of doodads) {
     //     for (const d of value) d.render(renderer, v, p);
     // }
-    //grid.render(renderer, v, p);
     renderer.resetSaveBindings();
 }
 
 let delta = 0;
 let last_now = Date.now();
-let sun_x = 1,
-    sun_z = 1;
 
 function update() {
     const new_now = Date.now();
     delta = new_now - last_now;
     last_now = new_now;
-
     delta = Math.min(delta, 20);
 
     fps_control.update();
-
-    const a = (Math.PI * new_now) / 6000;
-    //rotate sun
-    sun_x = Math.cos(a) - Math.sin(a);
-    sun_z = Math.sin(a) + Math.cos(a);
-    const pbrShader = renderer.getorCreateShader(IWO.ShaderSource.PBR);
-    pbrShader.use();
-    const pos = vec3.normalize(vec3.create(), [sun_x, sun_z, 2]);
-    //  console.log(pos);
-    //pbrShader.setUniform("u_lights[0].position", [pos[0], pos[1], pos[2], 0]);
 
     drawScene();
     requestAnimationFrame(update);

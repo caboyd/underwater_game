@@ -28,6 +28,9 @@ const temp_n1 = vec3.create();
 const temp_n2 = vec3.create();
 
 export class HeightMapChunk extends Geometry {
+    static indices?: Uint16Array | Uint32Array;
+    static indices_flip_y?: Uint16Array | Uint32Array;
+
     public opt: HeightMapChunkOptions;
     constructor(
         x_offset: number,
@@ -41,8 +44,8 @@ export class HeightMapChunk extends Geometry {
         const x_cells_plus1 = x_cells + 1;
         const z_cells = this.opt.z_cells;
         //generate height data
-        const verts = [];
-        const tex_coords = [];
+        const verts = Array((z_cells + 1) * (x_cells + 1) * 3);
+        const tex_coords = Array((z_cells + 1) * (x_cells + 1) * 2);
         const indices = [];
         const normals = Array((z_cells + 1) * (x_cells + 1) * 3).fill(0);
 
@@ -55,12 +58,12 @@ export class HeightMapChunk extends Geometry {
                 const x = (x0 * this.opt.x_width) / x_cells;
                 const y = height_fn(x + x_offset, z + z_offset);
 
-                verts.push(x + x_offset, y, z + z_offset);
+                verts[z0 * x_cells_plus1 * 3 + x0 * 3 + 0] = x + x_offset;
+                verts[z0 * x_cells_plus1 * 3 + x0 * 3 + 1] = y;
+                verts[z0 * x_cells_plus1 * 3 + x0 * 3 + 2] = z + z_offset;
 
-                tex_coords.push(
-                    (x * this.opt.tex_x_cells) / this.opt.x_width,
-                    (z * this.opt.tex_z_cells) / this.opt.z_width,
-                );
+                tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 0] = (x * this.opt.tex_x_cells) / this.opt.x_width;
+                tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 1] = (z * this.opt.tex_z_cells) / this.opt.z_width;
 
                 //add 2 triangles for the last 4 verts added
                 if (x0 !== 0 && z0 !== 0) {
@@ -70,13 +73,17 @@ export class HeightMapChunk extends Geometry {
                     const v4 = i - 1;
 
                     if (this.opt.flip_y) {
-                        //upside down, cw
-                        indices.push(v1, v3, v2);
-                        indices.push(v2, v3, v4);
+                        if (!HeightMapChunk.indices_flip_y) {
+                            //upside down, cw
+                            indices.push(v1, v3, v2);
+                            indices.push(v2, v3, v4);
+                        }
                     } else {
-                        //ccw
-                        indices.push(v1, v2, v3);
-                        indices.push(v2, v4, v3);
+                        if (!HeightMapChunk.indices) {
+                            //ccw
+                            indices.push(v1, v2, v3);
+                            indices.push(v2, v4, v3);
+                        }
                     }
 
                     const i1 = (i - 2 - x_cells_plus1) * 3;
@@ -144,7 +151,14 @@ export class HeightMapChunk extends Geometry {
         this.attributes.set(StandardAttribute.Vertex.name, new Float32Array(verts));
         this.attributes.set(StandardAttribute.Tex_Coord.name, new Float32Array(tex_coords));
         this.attributes.set(StandardAttribute.Normal.name, new Float32Array(normals));
-        this.indices = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
+
+        if (!HeightMapChunk.indices_flip_y && this.opt.flip_y)
+            HeightMapChunk.indices_flip_y =
+                indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
+        if (!HeightMapChunk.indices && !this.opt.flip_y)
+            HeightMapChunk.indices = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
+
+        this.indices = this.opt.flip_y ? HeightMapChunk.indices_flip_y : HeightMapChunk.indices;
     }
 
     getBufferedGeometry(): BufferedGeometry {

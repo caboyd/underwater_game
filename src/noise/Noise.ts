@@ -11,7 +11,7 @@ export interface Noise {
     SEED_Q1: number;
     SEED_Q2: number;
     noise(x: number, y: number): number;
-    worleyPoint(pos: vec2, L: number): PositionWithPseudos;
+    worleyPoint(out:vec2, pos: vec2): vec2;
 }
 
 export type PositionWithPseudos = {
