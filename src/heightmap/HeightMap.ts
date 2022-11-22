@@ -35,7 +35,8 @@ const temp_pos2 = vec2.create();
 const temp_dir2 = vec2.create();
 const temp_fov_dir1 = vec2.create();
 const temp_fov_dir2 = vec2.create();
-const temp_pos_to_corner = vec2.create();
+const temp_pos_to_chunk_center = vec2.create();
+const temp_chunk_center = vec2.create();
 
 export class HeightMap implements HeightMapOptions {
     public readonly floor_meshes: ActiveHeightMapMesh[][];
@@ -109,10 +110,10 @@ export class HeightMap implements HeightMapOptions {
                 //this.floor_chunks[z].push(floor_chunk);
 
                 let m = new Mesh(gl, ceiling_chunk, {reuse_index_buffer: ceiling_index_buffer});
-                // if (!ceiling_index_buffer) ceiling_index_buffer = m.index_buffer;
+                if (!ceiling_index_buffer) ceiling_index_buffer = m.index_buffer;
                 this.ceiling_meshes[z].push({mesh: new MeshInstance(m, this.material), active: false});
                 m = new Mesh(gl, floor_chunk, {reuse_index_buffer: floor_index_buffer});
-                // if (!floor_index_buffer) floor_index_buffer = m.index_buffer;
+                if (!floor_index_buffer) floor_index_buffer = m.index_buffer;
                 this.floor_meshes[z].push({mesh: new MeshInstance(m, this.material), active: false});
             }
         }
@@ -150,7 +151,6 @@ export class HeightMap implements HeightMapOptions {
         cell_range: number,
         cell_radius: number,
     ): void {
-        this.deactivateAllHeightMapMeshes();
         vec2.set(temp_pos2, pos[0], pos[2]);
         vec2.set(temp_dir2, dir[0], dir[2]);
         vec2.normalize(temp_dir2, temp_dir2);
@@ -161,38 +161,33 @@ export class HeightMap implements HeightMapOptions {
         const MAX_DIST_SQ =
             this.chunk_width_x * cell_range * this.chunk_width_x * cell_range +
             this.chunk_width_z * cell_range * this.chunk_width_z * cell_range;
+        temp_corners.length = 1;
 
         //check if every mesh is between both fov dirs
         for (let z = 0; z < this.z_chunks; z++) {
             for (let x = 0; x < this.x_chunks; x++) {
-                //four corners of a cell
+                this.deactiveMesh(x, z);
 
-                vec2.set(temp_corners[0], x * this.chunk_width_x, z * this.chunk_width_z);
-                vec2.set(temp_corners[1], x * this.chunk_width_x + this.chunk_width_x, z * this.chunk_width_z);
-                vec2.set(temp_corners[2], x * this.chunk_width_x, z * this.chunk_width_z + this.chunk_width_z);
+                //get center of chunk
                 vec2.set(
-                    temp_corners[3],
-                    x * this.chunk_width_x + this.chunk_width_x,
-                    z * this.chunk_width_z + this.chunk_width_z,
+                    temp_chunk_center,
+                    x * this.chunk_width_x + this.chunk_width_x / 2,
+                    z * this.chunk_width_z + +this.chunk_width_z,
                 );
 
                 //if angle between pos and each fov dir is less than angle between both fov dirs we are between
-                for (const corner of temp_corners) {
-                    //determine if corner is in view direction
-                    vec2.sub(temp_pos_to_corner, corner, temp_pos2);
-                    const dot = vec2.dot(temp_pos_to_corner, temp_dir2);
-                    if (dot < fov_radians / 2) continue;
-                    const dist_sq = vec2.sqrLen(temp_pos_to_corner);
-                    if (dist_sq > MAX_DIST_SQ) continue;
-                    vec2.normalize(temp_pos_to_corner, temp_pos_to_corner);
+                vec2.sub(temp_pos_to_chunk_center, temp_chunk_center, temp_pos2);
+                const dot = vec2.dot(temp_pos_to_chunk_center, temp_dir2);
+                if (dot < fov_radians / 2) continue;
 
-                    const pos_angle_1 = vec2.angle(temp_pos_to_corner, temp_fov_dir1);
-                    const pos_angle_2 = vec2.angle(temp_pos_to_corner, temp_fov_dir2);
-                    if (pos_angle_1 < angle && pos_angle_2 < angle) {
-                        this.ceiling_meshes[z][x].active = true;
-                        this.floor_meshes[z][x].active = true;
-                        break;
-                    }
+                const dist_sq = vec2.sqrLen(temp_pos_to_chunk_center);
+                if (dist_sq > MAX_DIST_SQ) continue;
+                vec2.normalize(temp_pos_to_chunk_center, temp_pos_to_chunk_center);
+
+                const pos_angle_1 = vec2.angle(temp_pos_to_chunk_center, temp_fov_dir1);
+                const pos_angle_2 = vec2.angle(temp_pos_to_chunk_center, temp_fov_dir2);
+                if (pos_angle_1 < angle && pos_angle_2 < angle) {
+                    this.activateMesh(x, z);
                 }
             }
         }
@@ -206,6 +201,16 @@ export class HeightMap implements HeightMapOptions {
                 if (this.floor_meshes[z] && this.floor_meshes[z][x]) this.floor_meshes[z][x].active = true;
             }
         }
+    }
+
+    private activateMesh(x: number, z: number) {
+        this.ceiling_meshes[z][x].active = true;
+        this.floor_meshes[z][x].active = true;
+    }
+
+    private deactiveMesh(x: number, z: number) {
+        this.ceiling_meshes[z][x].active = false;
+        this.floor_meshes[z][x].active = false;
     }
 
     private deactivateAllHeightMapMeshes() {
