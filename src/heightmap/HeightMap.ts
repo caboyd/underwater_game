@@ -30,7 +30,6 @@ type Result_SBFW = {
     w: number;
 };
 
-const temp_corners = [vec2.create(), vec2.create(), vec2.create(), vec2.create()];
 const temp_pos2 = vec2.create();
 const temp_dir2 = vec2.create();
 const temp_fov_dir1 = vec2.create();
@@ -81,19 +80,29 @@ export class HeightMap implements HeightMapOptions {
     }
 
     private generateChunkAt(gl: WebGL2RenderingContext, x: number, z: number) {
-        const ceiling_chunk = new HeightMapChunk(x * this.chunk_width_x, z * this.chunk_width_z, this.ceiling_noise(), {
-            x_width: this.chunk_width_x,
-            z_width: this.chunk_width_z,
-            tex_x_cells: 2,
-            tex_z_cells: 2,
-            flip_y: true,
-        });
-        const floor_chunk = new HeightMapChunk(x * this.chunk_width_x, z * this.chunk_width_z, this.floor_noise(), {
-            x_width: this.chunk_width_x,
-            z_width: this.chunk_width_z,
-            tex_x_cells: 2,
-            tex_z_cells: 2,
-        });
+        const ceiling_chunk = new HeightMapChunk(
+            x * this.chunk_width_x,
+            z * this.chunk_width_z,
+            this.getCeilingNoiseFunc(),
+            {
+                x_width: this.chunk_width_x,
+                z_width: this.chunk_width_z,
+                tex_x_cells: 2,
+                tex_z_cells: 2,
+                flip_y: true,
+            },
+        );
+        const floor_chunk = new HeightMapChunk(
+            x * this.chunk_width_x,
+            z * this.chunk_width_z,
+            this.getFloorNoiseFunc(),
+            {
+                x_width: this.chunk_width_x,
+                z_width: this.chunk_width_z,
+                tex_x_cells: 2,
+                tex_z_cells: 2,
+            },
+        );
 
         let m = new Mesh(gl, ceiling_chunk, {reuse_index_buffer: this.ceiling_index_buffer});
         if (!this.ceiling_index_buffer) this.ceiling_index_buffer = m.index_buffer;
@@ -107,8 +116,8 @@ export class HeightMap implements HeightMapOptions {
         let ceiling_index_buffer: IndexBuffer | undefined;
         let floor_index_buffer: IndexBuffer | undefined;
 
-        const floor_func = this.floor_noise();
-        const ceiling_func = this.ceiling_noise();
+        const floor_func = this.getFloorNoiseFunc();
+        const ceiling_func = this.getCeilingNoiseFunc();
 
         for (let z = 0; z < this.z_chunks; z++) {
             this.floor_meshes[z] = [];
@@ -163,23 +172,47 @@ export class HeightMap implements HeightMapOptions {
         return result;
     }
 
-    private floor_noise() {
-        return (x: number, y: number) => {
-            this.calculateHeightVars(result_sbfw, x, y);
+    private getFloorNoiseFunc() {
+        return (x: number, z: number) => {
+            this.calculateHeightVars(result_sbfw, x, z);
             const {s, b, f, w} = result_sbfw;
 
             if (s <= 0) return b + 3;
             return b * f - s + (w * w * f) / s;
         };
     }
-    private ceiling_noise() {
-        return (x: number, y: number) => {
-            this.calculateHeightVars(result_sbfw, x, y);
+    private getCeilingNoiseFunc() {
+        return (x: number, z: number) => {
+            this.calculateHeightVars(result_sbfw, x, z);
             const {s, b, f, w} = result_sbfw;
 
             if (s <= 0) return b - 3;
             return b * f + s - (w * w * f) / s;
         };
+    }
+
+    /**
+     *
+     * @return true if ceiling is `distance` above floor
+     */
+    public validPosition(x: number, z: number, distance: number) {
+        this.calculateHeightVars(result_sbfw, x, z);
+        const {s, b, f, w} = result_sbfw;
+
+        if (s <= 0) return false;
+        const floor = b * f - s + (w * w * f) / s;
+        const ceiling = b * f + s - (w * w * f) / s;
+        return ceiling - floor >= distance;
+    }
+
+    public validFloorPosition(x: number, z: number, distance: number): number | false {
+        this.calculateHeightVars(result_sbfw, x, z);
+        const {s, b, f, w} = result_sbfw;
+
+        if (s <= 0) return false;
+        const floor = b * f - s + (w * w * f) / s;
+        const ceiling = b * f + s - (w * w * f) / s;
+        return ceiling - floor >= distance ? floor : false;
     }
 
     public activateMeshesInView(
@@ -200,7 +233,6 @@ export class HeightMap implements HeightMapOptions {
         const MAX_DIST_SQ =
             this.chunk_width_x * cell_range * this.chunk_width_x * cell_range +
             this.chunk_width_z * cell_range * this.chunk_width_z * cell_range;
-        temp_corners.length = 1;
 
         //check if every mesh is between both fov dirs
         for (let z = 0; z < this.z_chunks; z++) {
