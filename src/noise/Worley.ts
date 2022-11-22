@@ -3,6 +3,8 @@ import {Noise, NoiseOptions, DefaultNoiseOptions, PositionWithPseudos} from "./N
 
 const UINT_MAX = 0xffffffff as const;
 
+const temp = vec2.create();
+
 export class Worley implements Noise {
     GRID_SIZE: number;
     amplitude: number;
@@ -61,21 +63,21 @@ export class Worley implements Noise {
 
     public noise(x: number, y: number): number {
         let result = this.differenceNoise(x, y);
-        result /= Math.hypot(this.GRID_SIZE, this.GRID_SIZE);
+        //result /= Math.hypot(this.GRID_SIZE, this.GRID_SIZE);
         return result;
     }
 
     public differenceNoise(x: number, y: number): number {
         const x_cell = Math.floor(x / this.GRID_SIZE);
         const y_cell = Math.floor(y / this.GRID_SIZE);
-
+        vec2.set(temp, x, y);
         let best_dist = 1.0e20;
         let second_dist = 1.0e20;
 
         for (let y_add = -1; y_add <= 1; y_add++) {
             for (let x_add = -1; x_add <= 1; x_add++) {
                 const point = this.worleyPointCell(x_cell + x_add, y_cell + y_add, 0).pos;
-                const distance = vec2.distance([x, y], point);
+                const distance = vec2.sqrDist(temp, point);
                 if (distance < best_dist) {
                     second_dist = best_dist;
                     best_dist = distance;
@@ -83,7 +85,7 @@ export class Worley implements Noise {
             }
         }
 
-        return (second_dist - best_dist) * this.amplitude;
+        return (Math.sqrt(second_dist) - Math.sqrt(best_dist)) * this.amplitude;
     }
 
     public differenceNMNoise(x: number, y: number, N: number, M: number): number {

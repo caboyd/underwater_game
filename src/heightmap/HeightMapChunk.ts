@@ -21,6 +21,12 @@ const DefaultHeightMapChunkOptions = {
     flip_y: false,
 };
 
+const temp_a = vec3.create();
+const temp_ab = vec3.create();
+const temp_ac = vec3.create();
+const temp_n1 = vec3.create();
+const temp_n2 = vec3.create();
+
 export class HeightMapChunk extends Geometry {
     public opt: HeightMapChunkOptions;
     constructor(
@@ -79,43 +85,49 @@ export class HeightMapChunk extends Geometry {
                     const i4 = (i - 1) * 3;
 
                     //accumulate normals for smooth shading
-                    const a1 = vec3.fromValues(verts[i1], verts[i1 + 1], verts[i1 + 2]);
-                    const b1 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
-                    const c1 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
-                    const ab = vec3.sub(vec3.create(), b1, a1);
-                    const ac = vec3.sub(vec3.create(), c1, a1);
-                    const n1 = vec3.cross(vec3.create(), ab, ac);
-                    if (this.opt.flip_y) vec3.negate(n1, n1);
+                    //const a1 = vec3.fromValues(verts[i1], verts[i1 + 1], verts[i1 + 2]);
+                    vec3.set(temp_a, verts[i1], verts[i1 + 1], verts[i1 + 2]);
+                    // const b1 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
+                    vec3.set(temp_ab, verts[i2], verts[i2 + 1], verts[i2 + 2]);
+                    //const c1 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
+                    vec3.set(temp_ac, verts[i3], verts[i3 + 1], verts[i3 + 2]);
+                    vec3.sub(temp_ab, temp_ab, temp_a);
+                    vec3.sub(temp_ac, temp_ac, temp_a);
+                    vec3.cross(temp_n1, temp_ab, temp_ac);
+                    if (this.opt.flip_y) vec3.negate(temp_n1, temp_n1);
 
-                    const a2 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
-                    const b2 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
-                    const c2 = vec3.fromValues(verts[i4], verts[i4 + 1], verts[i4 + 2]);
-                    const ab2 = vec3.sub(vec3.create(), b2, a2);
-                    const ac2 = vec3.sub(vec3.create(), c2, a2);
-                    const n2 = vec3.cross(vec3.create(), ab2, ac2);
-                    if (this.opt.flip_y) vec3.negate(n2, n2);
+                    //const a2 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
+                    vec3.set(temp_a, verts[i3], verts[i3 + 1], verts[i3 + 2]);
+                    //const b2 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
+                    vec3.set(temp_ab, verts[i2], verts[i2 + 1], verts[i2 + 2]);
+                    //const c2 = vec3.fromValues(verts[i4], verts[i4 + 1], verts[i4 + 2]);
+                    vec3.set(temp_ac, verts[i4], verts[i4 + 1], verts[i4 + 2]);
+                    vec3.sub(temp_ab, temp_ab, temp_a);
+                    vec3.sub(temp_ac, temp_ac, temp_a);
+                    vec3.cross(temp_n2, temp_ab, temp_ac);
+                    if (this.opt.flip_y) vec3.negate(temp_n2, temp_n2);
 
-                    normals[i3 + 0] += n1[0];
-                    normals[i3 + 1] += n1[1];
-                    normals[i3 + 2] += n1[2];
+                    normals[i3 + 0] += temp_n1[0];
+                    normals[i3 + 1] += temp_n1[1];
+                    normals[i3 + 2] += temp_n1[2];
 
-                    normals[i3 + 0] += n2[0];
-                    normals[i3 + 1] += n2[1];
-                    normals[i3 + 2] += n2[2];
-                    normals[i4 + 0] += n2[0];
-                    normals[i4 + 1] += n2[1];
-                    normals[i4 + 2] += n2[2];
+                    normals[i3 + 0] += temp_n2[0];
+                    normals[i3 + 1] += temp_n2[1];
+                    normals[i3 + 2] += temp_n2[2];
+                    normals[i4 + 0] += temp_n2[0];
+                    normals[i4 + 1] += temp_n2[1];
+                    normals[i4 + 2] += temp_n2[2];
 
                     if (x0 === 1) {
-                        normals[i1 + 0] += n1[0];
-                        normals[i1 + 1] += n1[1];
-                        normals[i1 + 2] += n1[2];
-                        normals[i2 + 0] += n1[0];
-                        normals[i2 + 1] += n1[1];
-                        normals[i2 + 2] += n1[2];
-                        normals[i2 + 0] += n2[0];
-                        normals[i2 + 1] += n2[1];
-                        normals[i2 + 2] += n2[2];
+                        normals[i1 + 0] += temp_n1[0];
+                        normals[i1 + 1] += temp_n1[1];
+                        normals[i1 + 2] += temp_n1[2];
+                        normals[i2 + 0] += temp_n1[0];
+                        normals[i2 + 1] += temp_n1[1];
+                        normals[i2 + 2] += temp_n1[2];
+                        normals[i2 + 0] += temp_n2[0];
+                        normals[i2 + 1] += temp_n2[1];
+                        normals[i2 + 2] += temp_n2[2];
                     }
                 }
             }
@@ -123,11 +135,11 @@ export class HeightMapChunk extends Geometry {
 
         //normalize all normals
         for (let i = 0; i < normals.length - 2; i += 3) {
-            const n = vec3.fromValues(normals[i], normals[i + 1], normals[i + 2]);
-            vec3.normalize(n, n);
-            normals[i] = n[0];
-            normals[i + 1] = n[1];
-            normals[i + 2] = n[2];
+            vec3.set(temp_n1, normals[i], normals[i + 1], normals[i + 2]);
+            vec3.normalize(temp_n1, temp_n1);
+            normals[i] = temp_n1[0];
+            normals[i + 1] = temp_n1[1];
+            normals[i + 2] = temp_n1[2];
         }
         this.attributes.set(StandardAttribute.Vertex.name, new Float32Array(verts));
         this.attributes.set(StandardAttribute.Tex_Coord.name, new Float32Array(tex_coords));
@@ -136,15 +148,7 @@ export class HeightMapChunk extends Geometry {
     }
 
     getBufferedGeometry(): BufferedGeometry {
-        const attr = {
-            [StandardAttribute.Vertex.name]: StandardAttribute.Vertex.createAttribute(),
-            [StandardAttribute.Tex_Coord.name]: StandardAttribute.Tex_Coord.createAttribute({
-                buffer_index: 1,
-            }),
-            [StandardAttribute.Normal.name]: StandardAttribute.Tex_Coord.createAttribute({
-                buffer_index: 2,
-            }),
-        };
+        const attr = StandardAttribute.MultiBufferApproach();
 
         return {
             attributes: attr,

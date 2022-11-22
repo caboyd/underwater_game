@@ -56,7 +56,7 @@ export class HeightMap implements HeightMapOptions {
     private init(gl: WebGL2RenderingContext) {
         const perlin = new Perlin(40, 70);
         // const perlin2 = new Perlin(12, 12);
-        const worley = new Worley(30, 42);
+        const worley = new Worley(30, 0.75);
         const width = this.chunk_width_x * this.x_chunks;
         const half_width = width / 2;
 
