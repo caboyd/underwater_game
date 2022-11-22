@@ -85,6 +85,7 @@ export class HeightMapChunk extends Geometry {
                     const ab = vec3.sub(vec3.create(), b1, a1);
                     const ac = vec3.sub(vec3.create(), c1, a1);
                     const n1 = vec3.cross(vec3.create(), ab, ac);
+                    if (this.opt.flip_y) vec3.negate(n1, n1);
 
                     const a2 = vec3.fromValues(verts[i3], verts[i3 + 1], verts[i3 + 2]);
                     const b2 = vec3.fromValues(verts[i2], verts[i2 + 1], verts[i2 + 2]);
@@ -92,6 +93,7 @@ export class HeightMapChunk extends Geometry {
                     const ab2 = vec3.sub(vec3.create(), b2, a2);
                     const ac2 = vec3.sub(vec3.create(), c2, a2);
                     const n2 = vec3.cross(vec3.create(), ab2, ac2);
+                    if (this.opt.flip_y) vec3.negate(n2, n2);
 
                     normals[i3 + 0] += n1[0];
                     normals[i3 + 1] += n1[1];
