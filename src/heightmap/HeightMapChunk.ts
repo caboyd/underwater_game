@@ -30,6 +30,7 @@ const temp_n2 = vec3.create();
 export class HeightMapChunk extends Geometry {
     static indices?: Uint16Array | Uint32Array;
     static indices_flip_y?: Uint16Array | Uint32Array;
+    static tex_coords?: Float32Array;
 
     public opt: HeightMapChunkOptions;
     constructor(
@@ -62,8 +63,10 @@ export class HeightMapChunk extends Geometry {
                 verts[z0 * x_cells_plus1 * 3 + x0 * 3 + 1] = y;
                 verts[z0 * x_cells_plus1 * 3 + x0 * 3 + 2] = z + z_offset;
 
-                tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 0] = (x * this.opt.tex_x_cells) / this.opt.x_width;
-                tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 1] = (z * this.opt.tex_z_cells) / this.opt.z_width;
+                if (!HeightMapChunk.tex_coords) {
+                    tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 0] = (x * this.opt.tex_x_cells) / this.opt.x_width;
+                    tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 1] = (z * this.opt.tex_z_cells) / this.opt.z_width;
+                }
 
                 //add 2 triangles for the last 4 verts added
                 if (x0 !== 0 && z0 !== 0) {
@@ -149,7 +152,8 @@ export class HeightMapChunk extends Geometry {
             normals[i + 2] = temp_n1[2];
         }
         this.attributes.set(StandardAttribute.Vertex.name, new Float32Array(verts));
-        this.attributes.set(StandardAttribute.Tex_Coord.name, new Float32Array(tex_coords));
+        if (!HeightMapChunk.tex_coords) HeightMapChunk.tex_coords = new Float32Array(tex_coords);
+        this.attributes.set(StandardAttribute.Tex_Coord.name, HeightMapChunk.tex_coords);
         this.attributes.set(StandardAttribute.Normal.name, new Float32Array(normals));
 
         if (!HeightMapChunk.indices_flip_y && this.opt.flip_y)

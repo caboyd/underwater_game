@@ -9,13 +9,17 @@ export interface HeightMapOptions {
     z_chunks: number;
     chunk_width_x: number;
     chunk_width_z: number;
+    x_cells: number;
+    z_cells: number;
 }
 
-const DefaultHeightMapOptions: HeightMapOptions = {
+export const DefaultHeightMapOptions: HeightMapOptions = {
     x_chunks: 80,
     z_chunks: 80,
     chunk_width_x: 6.25,
     chunk_width_z: 6.25,
+    x_cells: 20,
+    z_cells: 20,
 };
 
 type ActiveHeightMapMesh = {
@@ -47,6 +51,8 @@ export class HeightMap implements HeightMapOptions {
     readonly z_chunks: number;
     readonly chunk_width_x: number;
     readonly chunk_width_z: number;
+    readonly x_cells: number;
+    readonly z_cells: number;
     public material: PBRMaterial;
 
     private readonly perlin: Perlin;
@@ -62,6 +68,8 @@ export class HeightMap implements HeightMapOptions {
         this.z_chunks = opt.z_chunks;
         this.chunk_width_x = opt.chunk_width_x;
         this.chunk_width_z = opt.chunk_width_z;
+        this.x_cells = opt.x_cells;
+        this.z_cells = opt.z_cells;
         this.floor_meshes = new Array(this.z_chunks)
             .fill(new Array())
             .map(() => new Array(this.x_chunks).fill(new Array()).map(() => ({active: false} as ActiveHeightMapMesh)));
@@ -70,7 +78,8 @@ export class HeightMap implements HeightMapOptions {
             .map(() => new Array(this.x_chunks).fill(new Array()).map(() => ({active: false} as ActiveHeightMapMesh)));
         this.material = new PBRMaterial([1, 1, 1], 0.0, 0);
         this.perlin = new Perlin(40, 70);
-        this.worley = new Worley(30, 0.5);
+        const amp = Math.hypot(30, 30) / 2;
+        this.worley = new Worley(30, amp);
 
         const width = this.chunk_width_x * this.x_chunks;
         this.half_width = width / 2;
@@ -126,15 +135,15 @@ export class HeightMap implements HeightMapOptions {
                 const ceiling_chunk = new HeightMapChunk(x * this.chunk_width_x, z * this.chunk_width_z, ceiling_func, {
                     x_width: this.chunk_width_x,
                     z_width: this.chunk_width_z,
-                    tex_x_cells: 5,
-                    tex_z_cells: 5,
+                    x_cells: this.x_cells,
+                    z_cells: this.z_cells,
                     flip_y: true,
                 });
                 const floor_chunk = new HeightMapChunk(x * this.chunk_width_x, z * this.chunk_width_z, floor_func, {
                     x_width: this.chunk_width_x,
                     z_width: this.chunk_width_z,
-                    tex_x_cells: 5,
-                    tex_z_cells: 5,
+                    x_cells: this.x_cells,
+                    z_cells: this.z_cells,
                 });
 
                 let m = new Mesh(gl, ceiling_chunk, {reuse_index_buffer: ceiling_index_buffer});
@@ -172,6 +181,19 @@ export class HeightMap implements HeightMapOptions {
         return result;
     }
 
+    public getFloorAndCeiling(x: number, z: number) {
+        this.calculateHeightVars(result_sbfw, x, z);
+        const {s, b, f, w} = result_sbfw;
+
+        let floor;
+        if (s <= 0) floor = b + 3;
+        else floor = b * f - s + (w * w * f) / s;
+        let ceil;
+        if (s <= 0) ceil = b + 3;
+        ceil = b * f - s + (w * w * f) / s;
+        return {floor, ceil};
+    }
+
     private getFloorNoiseFunc() {
         return (x: number, z: number) => {
             this.calculateHeightVars(result_sbfw, x, z);
@@ -193,18 +215,8 @@ export class HeightMap implements HeightMapOptions {
 
     /**
      *
-     * @return true if ceiling is `distance` above floor
+     * @return floor height if valid else false
      */
-    public validPosition(x: number, z: number, distance: number) {
-        this.calculateHeightVars(result_sbfw, x, z);
-        const {s, b, f, w} = result_sbfw;
-
-        if (s <= 0) return false;
-        const floor = b * f - s + (w * w * f) / s;
-        const ceiling = b * f + s - (w * w * f) / s;
-        return ceiling - floor >= distance;
-    }
-
     public validFloorPosition(x: number, z: number, distance: number): number | false {
         this.calculateHeightVars(result_sbfw, x, z);
         const {s, b, f, w} = result_sbfw;

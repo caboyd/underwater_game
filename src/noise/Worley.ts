@@ -55,7 +55,7 @@ export class Worley implements Noise {
 
     public noise(x: number, y: number): number {
         let result = this.differenceNoise(x, y);
-        //result /= Math.hypot(this.GRID_SIZE, this.GRID_SIZE);
+        result /= Math.hypot(this.GRID_SIZE, this.GRID_SIZE);
         return result;
     }
 

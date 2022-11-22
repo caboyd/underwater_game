@@ -1,6 +1,7 @@
 import {glMatrix, mat4, vec3} from "gl-matrix";
 import * as IWO from "iwo-renderer";
 import {HeightMap} from "./heightmap/HeightMap";
+import {NoiseTexture} from "src/noise/NoiseTexture";
 
 let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
@@ -20,6 +21,7 @@ let doodad_map: Map<string, IWO.MeshInstance> = new Map();
 let doodads: Map<string, IWO.MeshInstance[]> = new Map();
 
 let height_map: HeightMap;
+let noise_tex: NoiseTexture;
 
 await (async function () {
     canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -69,6 +71,7 @@ async function initScene() {
     pbrShader.setUniform("u_light_count", 1);
     pbrShader.setUniform("light_ambient", ambient_color);
 
+    noise_tex = new NoiseTexture(gl, {z_chunks: chunks, x_chunks: chunks});
     height_map = new HeightMap(gl, {z_chunks: chunks, x_chunks: chunks});
     height_map.material.albedo_image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
 
@@ -149,6 +152,7 @@ function drawScene() {
     const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
     const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
     height_map.activateMeshesInView(gl, camera.position, camera.getForward(), fovx, 7, 4);
+    // noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 7, 4);
 
     for (let z = 0; z < height_map.z_chunks; z++) {
         for (let x = 0; x < height_map.x_chunks; x++) {
