@@ -5,5 +5,7 @@
   "semi": true,
   "singleQuote": false,
   "printWidth": 120,
-  "bracketSpacing": false
+  "bracketSpacing": false,
+
+  "overrides": [{"files": ["*.frag", "*.vert"], "options": {"parser": "glsl-parser"}}]
 }

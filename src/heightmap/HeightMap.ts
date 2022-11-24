@@ -76,7 +76,7 @@ export class HeightMap implements HeightMapOptions {
         this.ceiling_meshes = new Array(this.z_chunks)
             .fill(new Array())
             .map(() => new Array(this.x_chunks).fill(new Array()).map(() => ({active: false} as ActiveHeightMapMesh)));
-        this.material = new PBRMaterial([1, 1, 1], 0.0, 0);
+        this.material = new PBRMaterial({albedo_color: [1, 1, 1]});
         this.perlin = new Perlin(40, 70);
         const amp = Math.hypot(30, 30) / 2;
         this.worley = new Worley(30, amp);
@@ -189,8 +189,8 @@ export class HeightMap implements HeightMapOptions {
         if (s <= 0) floor = b + 3;
         else floor = b * f - s + (w * w * f) / s;
         let ceil;
-        if (s <= 0) ceil = b + 3;
-        ceil = b * f - s + (w * w * f) / s;
+        if (s <= 0) ceil = b - 3;
+        else ceil = b * f + s + (w * w * f) / s;
         return {floor, ceil};
     }
 

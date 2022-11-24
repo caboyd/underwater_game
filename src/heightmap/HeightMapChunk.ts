@@ -12,8 +12,8 @@ export type HeightMapChunkOptions = {
 };
 
 const DefaultHeightMapChunkOptions = {
-    x_width: 20,
-    z_width: 20,
+    x_width: 6.25,
+    z_width: 6.25,
     x_cells: 20,
     z_cells: 20,
     tex_x_cells: 5,
