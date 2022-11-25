@@ -12,6 +12,7 @@ let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
 
+const root_url = "iwo-assets/underwater_game/";
 const view_matrix: mat4 = mat4.create();
 const proj_matrix: mat4 = mat4.create();
 
@@ -92,7 +93,7 @@ async function initScene() {
 
     noise_tex = new NoiseTexture(gl, Height_Opt);
     height_map = new HeightMap(gl, Height_Opt);
-    height_map.material.albedo_image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
+    height_map.material.albedo_image = await IWO.ImageLoader.promise("floor.png", root_url + "images/");
 
     const ceiling_mat = new HeightMapMaterial({
         height_map_texture: noise_tex.texture,
@@ -120,13 +121,14 @@ async function initScene() {
     grid = new IWO.MeshInstance(grid_mesh, grid_mat);
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
-    await initDoodad("starfish_low.obj", "assets/models/", "starfish", [0.0015, 0.0015, 0.0015]);
-    await initDoodad("seashell_low.obj", "assets/models/", "seashell", [0.02, 0.02, 0.02]);
-    await initDoodad("plant3.obj", "assets/models/", "plant3", [2, 2, 2]);
-    await initDoodad("plant6.obj", "assets/models/", "plant6", [0.6, 0.6, 0.6]);
-    await initDoodad("grass.obj", "assets/models/", "grass", [0.25, 0.25, 0.25]);
-    await initDoodad("pale_fan.obj", "assets/models/", "pale_fan", [0.25, 0.25, 0.25]);
-    await initDoodad("dropwort_single.obj", "assets/models/", "dropwort_single", [0.25, 0.25, 0.25]);
+    const doodad_url = root_url + "obj/doodads/";
+    await initDoodad("starfish_low.obj", doodad_url, "starfish", [0.0015, 0.0015, 0.0015]);
+    await initDoodad("seashell_low.obj", doodad_url, "seashell", [0.02, 0.02, 0.02]);
+    await initDoodad("plant3.obj", doodad_url, "plant3", [2, 2, 2]);
+    await initDoodad("plant6.obj", doodad_url, "plant6", [0.6, 0.6, 0.6]);
+    await initDoodad("grass.obj", doodad_url, "grass", [0.25, 0.25, 0.25]);
+    await initDoodad("pale_fan.obj", doodad_url, "pale_fan", [0.25, 0.25, 0.25]);
+    await initDoodad("dropwort_single.obj", doodad_url, "dropwort_single", [0.25, 0.25, 0.25]);
 
     //generate random doodads
     const temp_translate = mat4.create();

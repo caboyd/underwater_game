@@ -45,7 +45,7 @@ export default {
         }),
         copy({
             targets: [
-                {src: "./assets/**/*", dest: output_dir},
+                {src: "./iwo-assets/underwater_game/**/*", dest: output_dir},
                 {src: ".nojekyll", dest: output_dir},
             ],
             // set flatten to false to preserve folder structure
