@@ -1,0 +1,3 @@
+[submodule "iwo-assets"]
+	path = iwo-assets
+	url = https://github.com/caboyd/iwo-assets
