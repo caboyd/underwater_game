@@ -12,8 +12,8 @@ export type HeightMapChunkOptions = {
 };
 
 const DefaultHeightMapChunkOptions = {
-    x_width: 20,
-    z_width: 20,
+    x_width: 6.25,
+    z_width: 6.25,
     x_cells: 20,
     z_cells: 20,
     tex_x_cells: 5,
@@ -64,8 +64,8 @@ export class HeightMapChunk extends Geometry {
                 verts[z0 * x_cells_plus1 * 3 + x0 * 3 + 2] = z + z_offset;
 
                 if (!HeightMapChunk.tex_coords) {
-                    tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 0] = (x * this.opt.tex_x_cells) / this.opt.x_width;
-                    tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 1] = (z * this.opt.tex_z_cells) / this.opt.z_width;
+                    tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 0] = (x0 * this.opt.tex_x_cells) / this.opt.x_cells;
+                    tex_coords[z0 * x_cells_plus1 * 2 + x0 * 2 + 1] = (z0 * this.opt.tex_z_cells) / this.opt.z_cells;
                 }
 
                 //add 2 triangles for the last 4 verts added

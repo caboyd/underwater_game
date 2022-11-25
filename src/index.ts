@@ -2,6 +2,11 @@ import {glMatrix, mat4, vec3} from "gl-matrix";
 import * as IWO from "iwo-renderer";
 import {HeightMap} from "./heightmap/HeightMap";
 import {NoiseTexture} from "src/noise/NoiseTexture";
+import {HeightMapChunk2} from "src/heightmap/HeightMapChunk2";
+import {MeshInstance} from "iwo-renderer";
+import {HeightMapMaterial} from "src/heightmap/HeightMapMaterial";
+import {HeightMapShaderSource} from "src/heightmap/HeightMapShader";
+import {HeightMapOptions} from "src/heightmap/HeightMap";
 
 let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
@@ -10,9 +15,19 @@ const FOV = 45 as const;
 const view_matrix: mat4 = mat4.create();
 const proj_matrix: mat4 = mat4.create();
 
-const chunks = 80;
+const Height_Opt: HeightMapOptions = {
+    z_chunks: 80,
+    x_chunks: 80,
+    tex_x_cells: 2,
+    tex_z_cells: 2,
+    x_cells: 20,
+    z_cells: 20,
+    chunk_width_z: 6.25,
+    chunk_width_x: 6.25,
+} as const;
 
-const cPos: vec3 = vec3.fromValues((chunks * 6.25) / 2, 0, (chunks * 6.25) / 2);
+const cPos: vec3 = vec3.fromValues((Height_Opt.x_chunks * 6.25) / 2, 5, (Height_Opt.z_chunks * 6.25) / 2);
+//const cPos: vec3 = vec3.fromValues(4, 1, 4);
 let camera: IWO.Camera;
 
 let renderer: IWO.Renderer;
@@ -22,6 +37,12 @@ let doodads: Map<string, IWO.MeshInstance[]> = new Map();
 
 let height_map: HeightMap;
 let noise_tex: NoiseTexture;
+let ceiling_chunk: IWO.MeshInstance;
+let floor_chunk: IWO.MeshInstance;
+let grid: IWO.MeshInstance;
+
+let map_toggle: boolean = false;
+let light_toggle: boolean = true;
 
 await (async function () {
     canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -53,27 +74,51 @@ await (async function () {
 
 async function initScene() {
     camera = new IWO.Camera(cPos, [-0.7, 0, -0.7]);
-    fps_control = new IWO.FPSControl(camera);
 
-    gl.clearColor(0 / 255, 60 / 255, 95 / 255, 1.0);
+    fps_control = new IWO.FPSControl(camera, {forward_sprint_modifier: 5});
+
+    gl.clearColor(60 / 255, 60 / 255, 95 / 255, 1.0);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
 
-    const light_intensity = 20;
-    const light_color = [(light_intensity * 254) / 255, (light_intensity * 238) / 255, (light_intensity * 224) / 255];
-    const ambient_intensity = 0.0001;
-    const ambient_color = [0, (ambient_intensity * 60) / 255, (ambient_intensity * 95) / 255];
-
     const pbrShader = renderer.getorCreateShader(IWO.ShaderSource.PBR);
     pbrShader.use();
-    pbrShader.setUniform("u_lights[0].color", light_color);
     pbrShader.setUniform("u_light_count", 1);
-    pbrShader.setUniform("light_ambient", ambient_color);
 
-    noise_tex = new NoiseTexture(gl, {z_chunks: chunks, x_chunks: chunks});
-    height_map = new HeightMap(gl, {z_chunks: chunks, x_chunks: chunks});
+    const heightShader = renderer.getorCreateShader(HeightMapShaderSource);
+    heightShader.use();
+    heightShader.setUniform("u_light_count", 1);
+
+    noise_tex = new NoiseTexture(gl, Height_Opt);
+    height_map = new HeightMap(gl, Height_Opt);
     height_map.material.albedo_image = await IWO.ImageLoader.promise("floor.png", "assets/models/");
+
+    const ceiling_mat = new HeightMapMaterial({
+        height_map_texture: noise_tex.texture,
+        flip_y: true,
+        height_map_options: Height_Opt,
+        pbr_material_options: {albedo_image: height_map.material.albedo_image},
+    });
+    const c_chunk = new HeightMapChunk2({flip_y: true});
+    const c_chunk_mesh = new IWO.Mesh(gl, c_chunk);
+    ceiling_chunk = new IWO.MeshInstance(c_chunk_mesh, ceiling_mat);
+
+    const floor_mat = new HeightMapMaterial({
+        height_map_texture: noise_tex.texture,
+        height_map_options: Height_Opt,
+        pbr_material_options: {albedo_image: height_map.material.albedo_image},
+    });
+
+    const f_chunk = new HeightMapChunk2();
+    const f_chunk_mesh = new IWO.Mesh(gl, f_chunk);
+    floor_chunk = new IWO.MeshInstance(f_chunk_mesh, floor_mat);
+
+    const grid_geom = new IWO.PlaneGeometry(100, 100);
+    const grid_mat = new IWO.GridMaterial();
+    const grid_mesh = new IWO.Mesh(gl, grid_geom);
+    grid = new IWO.MeshInstance(grid_mesh, grid_mat);
+    mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
     await initDoodad("starfish_low.obj", "assets/models/", "starfish", [0.0015, 0.0015, 0.0015]);
     await initDoodad("seashell_low.obj", "assets/models/", "seashell", [0.02, 0.02, 0.02]);
@@ -144,28 +189,37 @@ function drawScene() {
 
     renderer.setPerFrameUniforms(v, p);
 
-    const pbrShader = renderer.getorCreateShader(IWO.ShaderSource.PBR);
-    pbrShader.use();
-    //point light
-    pbrShader.setUniform("u_lights[0].position", [camera.position[0], camera.position[1], camera.position[2], 1]);
+    setupLights();
 
     const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
     const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
-    height_map.activateMeshesInView(gl, camera.position, camera.getForward(), fovx, 7, 4);
-    // noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 7, 4);
 
-    for (let z = 0; z < height_map.z_chunks; z++) {
-        for (let x = 0; x < height_map.x_chunks; x++) {
-            const c_mesh = height_map.ceiling_meshes[z][x];
-            if (!c_mesh.active) continue;
-            c_mesh.mesh?.render(renderer, v, p);
-            height_map.floor_meshes[z][x].mesh?.render(renderer, v, p);
+    if (map_toggle) {
+        height_map.activateMeshesInView(gl, camera.position, camera.getForward(), fovx, 10, 4);
+        for (let z = 0; z < height_map.z_chunks; z++) {
+            for (let x = 0; x < height_map.x_chunks; x++) {
+                const c_mesh = height_map.ceiling_meshes[z][x];
+                if (!c_mesh.active) continue;
+                c_mesh.mesh?.render(renderer, v, p);
+                height_map.floor_meshes[z][x].mesh?.render(renderer, v, p);
+            }
         }
+    } else {
+        const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 10, 4);
+
+        ceiling_chunk.mesh.updateBuffer(gl, 1, chunk_coords);
+        ceiling_chunk.mesh.instances = chunk_coords.length / 2;
+        floor_chunk.mesh.updateBuffer(gl, 1, chunk_coords);
+        floor_chunk.mesh.instances = chunk_coords.length / 2;
+
+        ceiling_chunk.render(renderer, v, p);
+        floor_chunk.render(renderer, v, p);
     }
 
     for (const [key, value] of doodads) {
         for (const d of value) d.render(renderer, v, p);
     }
+    //grid.render(renderer, v, p);
     renderer.resetSaveBindings();
 }
 
@@ -183,3 +237,51 @@ function update() {
     drawScene();
     requestAnimationFrame(update);
 }
+
+function setupLights() {
+    const shaders = [
+        renderer.getorCreateShader(IWO.ShaderSource.PBR),
+        renderer.getorCreateShader(HeightMapShaderSource),
+    ];
+    if (light_toggle) {
+        for (const shader of shaders) {
+            const ambient_intensity = 0.01;
+            const ambient_color = [
+                (ambient_intensity * 0) / 255,
+                (ambient_intensity * 60) / 255,
+                (ambient_intensity * 95) / 255,
+            ];
+            const light_intensity = 20;
+            const light_color = [
+                (light_intensity * 254) / 255,
+                (light_intensity * 238) / 255,
+                (light_intensity * 224) / 255,
+            ];
+            shader.use();
+            shader.setUniform("u_lights[0].position", [camera.position[0], camera.position[1], camera.position[2], 1]);
+            shader.setUniform("u_lights[0].color", light_color);
+            shader.setUniform("light_ambient", ambient_color);
+        }
+    } else {
+        for (const shader of shaders) {
+            const ambient_intensity = 0.4;
+            const ambient_color = [
+                (ambient_intensity * 60) / 255,
+                (ambient_intensity * 60) / 255,
+                (ambient_intensity * 95) / 255,
+            ];
+            const sun_dir = [-1, 0.8, 1];
+            const sun_intensity = 6;
+            const sun_color = [(sun_intensity * 254) / 255, (sun_intensity * 238) / 255, (sun_intensity * 224) / 255];
+            shader.use();
+            shader.setUniform("u_lights[0].position", [sun_dir[0], sun_dir[1], sun_dir[2], 0]);
+            shader.setUniform("u_lights[0].color", sun_color);
+            shader.setUniform("light_ambient", ambient_color);
+        }
+    }
+}
+
+document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "f") map_toggle = !map_toggle;
+    if (e.key === "l") light_toggle = !light_toggle;
+});
