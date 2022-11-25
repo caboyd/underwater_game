@@ -17,6 +17,8 @@ export class NoiseTexture implements HeightMapOptions {
     z_cells: number;
     chunk_width_x: number;
     chunk_width_z: number;
+    tex_x_cells: number;
+    tex_z_cells: number;
     generated_cells: boolean[][];
     height_map: HeightMap;
     data: Float32Array;
@@ -30,6 +32,8 @@ export class NoiseTexture implements HeightMapOptions {
         this.z_cells = opt.z_cells;
         this.chunk_width_x = opt.chunk_width_x;
         this.chunk_width_z = opt.chunk_width_z;
+        this.tex_x_cells = opt.tex_x_cells;
+        this.tex_z_cells = opt.tex_z_cells;
 
         this.generated_cells = new Array(this.z_chunks)
             .fill(new Array())
@@ -56,6 +60,8 @@ export class NoiseTexture implements HeightMapOptions {
             internal_format: gl.RG32F,
             flip: true,
         });
+
+        this.drawTexture(0, 0);
     }
 
     public generateCellsInView(
@@ -132,16 +138,19 @@ export class NoiseTexture implements HeightMapOptions {
 
         const width = this.x_cells * this.x_chunks;
         const height = this.z_cells * this.z_chunks;
+        const c = this.components;
 
         for (let iz = z * this.z_cells; iz < z * this.z_cells + this.z_cells; iz++) {
             for (let ix = x * this.x_cells; ix < x * this.x_cells + this.x_cells; ix++) {
-                const {floor, ceil} = this.height_map.getFloorAndCeiling(ix, iz);
-                const c = this.components;
+                const x0 = (ix * this.chunk_width_x) / this.x_cells;
+                const z0 = (iz * this.chunk_width_x) / this.z_cells;
+                const {floor, ceil} = this.height_map.getFloorAndCeiling(x0, z0);
 
-                this.data[iz * width * c + ix * c + 0] = ceil;
-                this.data[iz * width * c + ix * c + 1] = floor;
-                //this.data[iz * width * c + ix * c + 2] = 0;
-                //this.data[iz * width * c + ix * c + 3] = 255;
+                const index = iz * width * c + ix * c;
+                this.data[index + 0] = ceil;
+                this.data[index + 1] = floor;
+                //this.data[index + 2] = 0;
+                //this.data[index + 3] = 255;
             }
         }
         return true;

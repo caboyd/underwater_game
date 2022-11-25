@@ -11,6 +11,8 @@ export interface HeightMapOptions {
     chunk_width_z: number;
     x_cells: number;
     z_cells: number;
+    tex_x_cells: number;
+    tex_z_cells: number;
 }
 
 export const DefaultHeightMapOptions: HeightMapOptions = {
@@ -20,6 +22,8 @@ export const DefaultHeightMapOptions: HeightMapOptions = {
     chunk_width_z: 6.25,
     x_cells: 20,
     z_cells: 20,
+    tex_x_cells: 2,
+    tex_z_cells: 2,
 };
 
 type ActiveHeightMapMesh = {
@@ -53,6 +57,8 @@ export class HeightMap implements HeightMapOptions {
     readonly chunk_width_z: number;
     readonly x_cells: number;
     readonly z_cells: number;
+    readonly tex_x_cells: number;
+    readonly tex_z_cells: number;
     public material: PBRMaterial;
 
     private readonly perlin: Perlin;
@@ -70,6 +76,9 @@ export class HeightMap implements HeightMapOptions {
         this.chunk_width_z = opt.chunk_width_z;
         this.x_cells = opt.x_cells;
         this.z_cells = opt.z_cells;
+        this.tex_x_cells = opt.tex_x_cells;
+        this.tex_z_cells = opt.tex_z_cells;
+
         this.floor_meshes = new Array(this.z_chunks)
             .fill(new Array())
             .map(() => new Array(this.x_chunks).fill(new Array()).map(() => ({active: false} as ActiveHeightMapMesh)));
@@ -96,8 +105,10 @@ export class HeightMap implements HeightMapOptions {
             {
                 x_width: this.chunk_width_x,
                 z_width: this.chunk_width_z,
-                tex_x_cells: 2,
-                tex_z_cells: 2,
+                tex_x_cells: this.tex_x_cells,
+                tex_z_cells: this.tex_z_cells,
+                x_cells: this.x_cells,
+                z_cells: this.z_cells,
                 flip_y: true,
             },
         );
@@ -108,8 +119,10 @@ export class HeightMap implements HeightMapOptions {
             {
                 x_width: this.chunk_width_x,
                 z_width: this.chunk_width_z,
-                tex_x_cells: 2,
-                tex_z_cells: 2,
+                tex_x_cells: this.tex_x_cells,
+                tex_z_cells: this.tex_z_cells,
+                x_cells: this.x_cells,
+                z_cells: this.z_cells,
             },
         );
 
@@ -188,9 +201,11 @@ export class HeightMap implements HeightMapOptions {
         let floor;
         if (s <= 0) floor = b + 3;
         else floor = b * f - s + (w * w * f) / s;
+
         let ceil;
         if (s <= 0) ceil = b - 3;
-        else ceil = b * f + s + (w * w * f) / s;
+        else ceil = b * f + s - (w * w * f) / s;
+
         return {floor, ceil};
     }
 

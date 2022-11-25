@@ -1,8 +1,6 @@
 import {BufferedGeometry, Geometry, GL, createAttribute, Attributes} from "iwo-renderer";
 
 export type HeightMapChunk2Options = {
-    x_width: number;
-    z_width: number;
     x_cells: number;
     z_cells: number;
     tex_x_cells: number;
@@ -11,8 +9,6 @@ export type HeightMapChunk2Options = {
 };
 
 export const DefaultHeightMapChunk2Options = {
-    x_width: 6.25,
-    z_width: 6.25,
     x_cells: 20,
     z_cells: 20,
     tex_x_cells: 5,
@@ -37,13 +33,11 @@ export class HeightMapChunk2 extends Geometry {
 
         let i = 0;
         for (let z0 = 0; z0 <= z_cells; ++z0) {
-            const z = (z0 * this.opt.z_width) / z_cells;
             for (let x0 = 0; x0 <= x_cells; ++x0) {
                 i += 1;
-                const x = (x0 * this.opt.x_width) / x_cells;
 
-                verts[z0 * x_cells_plus1 * components + x0 * components + 0] = x;
-                verts[z0 * x_cells_plus1 * components + x0 * components + 1] = z;
+                verts[z0 * x_cells_plus1 * components + x0 * components + 0] = z0;
+                verts[z0 * x_cells_plus1 * components + x0 * components + 1] = x0;
 
                 //add 2 triangles for the last 4 verts added
                 if (x0 !== 0 && z0 !== 0) {
@@ -52,7 +46,7 @@ export class HeightMapChunk2 extends Geometry {
                     const v3 = i - 1 - x_cells_plus1;
                     const v4 = i - 1;
 
-                    if (this.opt.flip_y) {
+                    if (!this.opt.flip_y) {
                         //upside down, cw
                         indices.push(v1, v3, v2);
                         indices.push(v2, v3, v4);
@@ -67,7 +61,7 @@ export class HeightMapChunk2 extends Geometry {
 
         this.attributes.set("position", new Float32Array(verts));
         //2x2 grid
-        this.attributes.set("chunk_coord", new Uint16Array(400));
+        this.attributes.set("chunk_coord", new Uint16Array(8000));
 
         this.indices = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
     }

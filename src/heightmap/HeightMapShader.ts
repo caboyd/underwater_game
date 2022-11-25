@@ -2,7 +2,9 @@ import {PBRShader, ShaderSource} from "iwo-renderer";
 
 //NOTE: Relative import is required for rollup-plugin-node-resolve to resolve these extensions
 // @ts-ignore
-import heightMapVert from "./heightmap.vert";
+import heightMapVert from "./shader/heightmap.vert";
+// @ts-ignore
+import heightMapFrag from "./shader/heightmap.frag";
 
 export class HeightMapShader extends PBRShader {
     constructor(
@@ -23,6 +25,6 @@ export class HeightMapShader extends PBRShader {
 export const HeightMapShaderSource: ShaderSource = {
     name: "HeightMapShader",
     vert: heightMapVert,
-    frag: ShaderSource.PBR.frag,
+    frag: heightMapFrag,
     subclass: HeightMapShader,
 };
