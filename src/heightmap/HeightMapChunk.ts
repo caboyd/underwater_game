@@ -1,5 +1,5 @@
-import {vec3} from "gl-matrix";
-import {BufferedGeometry, Geometry, GL, StandardAttribute} from "iwo-renderer";
+import { vec3 } from "gl-matrix";
+import { Attribute, DrawMode, Geometry, GL, Group, StandardAttribute, TypedArray } from "iwo-renderer";
 
 export type HeightMapChunkOptions = {
     x_width: number;
@@ -27,10 +27,17 @@ const temp_ac = vec3.create();
 const temp_n1 = vec3.create();
 const temp_n2 = vec3.create();
 
-export class HeightMapChunk extends Geometry {
+export class HeightMapChunk implements Geometry {
     static indices?: Uint16Array | Uint32Array;
     static indices_flip_y?: Uint16Array | Uint32Array;
     static tex_coords?: Float32Array;
+    attributes: Record<string, Attribute>;
+    buffers: TypedArray[];
+    index_buffer?: Uint16Array | Uint32Array | undefined;
+    groups?: Group[] | undefined;
+    draw_mode: DrawMode;
+    count: number;
+    instances?: number | undefined;
 
     public opt: HeightMapChunkOptions;
     constructor(
@@ -39,7 +46,8 @@ export class HeightMapChunk extends Geometry {
         height_fn: (x: number, z: number) => number,
         options?: Partial<HeightMapChunkOptions>,
     ) {
-        super();
+        this.buffers = [];
+        this.draw_mode = GL.TRIANGLES;
         this.opt = {...DefaultHeightMapChunkOptions, ...options};
         const x_cells = this.opt.x_cells;
         const x_cells_plus1 = x_cells + 1;
@@ -151,10 +159,13 @@ export class HeightMapChunk extends Geometry {
             normals[i + 1] = temp_n1[1];
             normals[i + 2] = temp_n1[2];
         }
-        this.attributes.set(StandardAttribute.Vertex.name, new Float32Array(verts));
+        this.buffers.push(new Float32Array(verts));
+
         if (!HeightMapChunk.tex_coords) HeightMapChunk.tex_coords = new Float32Array(tex_coords);
-        this.attributes.set(StandardAttribute.Tex_Coord.name, HeightMapChunk.tex_coords);
-        this.attributes.set(StandardAttribute.Normal.name, new Float32Array(normals));
+        this.buffers.push(HeightMapChunk.tex_coords);
+        this.buffers.push(new Float32Array(normals));
+
+        this.attributes = StandardAttribute.MultiBufferApproach();
 
         if (!HeightMapChunk.indices_flip_y && this.opt.flip_y)
             HeightMapChunk.indices_flip_y =
@@ -162,21 +173,7 @@ export class HeightMapChunk extends Geometry {
         if (!HeightMapChunk.indices && !this.opt.flip_y)
             HeightMapChunk.indices = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
 
-        this.indices = this.opt.flip_y ? HeightMapChunk.indices_flip_y : HeightMapChunk.indices;
-    }
-
-    getBufferedGeometry(): BufferedGeometry {
-        const attr = StandardAttribute.MultiBufferApproach();
-
-        return {
-            attributes: attr,
-            draw_mode: GL.TRIANGLES,
-            index_buffer: {buffer: this.indices, target: GL.ELEMENT_ARRAY_BUFFER},
-            buffers: [
-                {buffer: this.attributes.get(StandardAttribute.Vertex.name), target: GL.ARRAY_BUFFER},
-                {buffer: this.attributes.get(StandardAttribute.Tex_Coord.name), target: GL.ARRAY_BUFFER},
-                {buffer: this.attributes.get(StandardAttribute.Normal.name), target: GL.ARRAY_BUFFER},
-            ],
-        } as BufferedGeometry;
+        this.index_buffer = this.opt.flip_y ? HeightMapChunk.indices_flip_y : HeightMapChunk.indices;
+        this.count = this.index_buffer!.length;
     }
 }

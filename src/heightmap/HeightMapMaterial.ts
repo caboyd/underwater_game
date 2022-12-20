@@ -1,7 +1,7 @@
 import {PBRMaterial, Shader, ShaderSource, Texture2D} from "iwo-renderer";
 
 import {PBRMaterialOptions} from "iwo-renderer/dist/materials/PBRMaterial";
-import {DefaultHeightMapChunk2Options, HeightMapChunk2Options} from "src/heightmap/HeightMapChunk2";
+import {DefaultHeightMapChunk2Options, HeightMapChunkInstancedOptions} from "src/heightmap/HeightMapChunkInstanced";
 import {HeightMapShaderSource} from "./HeightMapShader";
 import {DefaultHeightMapOptions, HeightMapOptions} from "src/heightmap/HeightMap";
 

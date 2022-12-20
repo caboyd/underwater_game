@@ -1,6 +1,6 @@
-import {BufferedGeometry, Geometry, GL, createAttribute, Attributes} from "iwo-renderer";
+import {Geometry, createAttribute, Attribute, TypedArray, DrawMode, Group, GL} from "iwo-renderer";
 
-export type HeightMapChunk2Options = {
+export type HeightMapChunkInstancedOptions = {
     x_cells: number;
     z_cells: number;
     tex_x_cells: number;
@@ -16,12 +16,20 @@ export const DefaultHeightMapChunk2Options = {
     flip_y: false,
 };
 
-export class HeightMapChunk2 extends Geometry {
-    static tex_coords?: Float32Array;
+export class HeightMapChunkInstanced implements Geometry {
+    public opt: HeightMapChunkInstancedOptions;
+    attributes: Record<string, Attribute>;
+    buffers: TypedArray[];
+    index_buffer: Uint16Array | Uint32Array;
+    draw_mode: DrawMode;
+    count: number;
+    instances: number;
 
-    public opt: HeightMapChunk2Options;
-    constructor(options?: Partial<HeightMapChunk2Options>) {
-        super();
+    constructor(options?: Partial<HeightMapChunkInstancedOptions>) {
+        this.attributes = {};
+        this.buffers = [];
+        this.draw_mode = GL.TRIANGLES;
+
         this.opt = {...DefaultHeightMapChunk2Options, ...options};
         const x_cells = this.opt.x_cells;
         const x_cells_plus1 = x_cells + 1;
@@ -59,35 +67,26 @@ export class HeightMapChunk2 extends Geometry {
             }
         }
 
-        this.attributes.set("position", new Float32Array(verts));
+        this.attributes["position"] = createAttribute("position", {
+            component_count: 2,
+            buffer_index: 0,
+            divisor: 0,
+            enabled: true,
+        });
+        this.buffers.push(new Float32Array(verts));
         //2x2 grid
-        this.attributes.set("chunk_coord", new Uint16Array(8000));
 
-        this.indices = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
-    }
+        this.attributes["chunk_coord"] = createAttribute("chunk_coord", {
+            enabled: true,
+            component_count: 2,
+            buffer_index: 1,
+            component_type: GL.UNSIGNED_SHORT,
+            divisor: 1,
+        });
+        this.buffers.push(new Uint16Array(8000));
 
-    getBufferedGeometry(): BufferedGeometry {
-        const attr: Attributes = {
-            position: createAttribute("position", {component_count: 2, buffer_index: 0, divisor: 0, enabled: true}),
-            chunk_coord: createAttribute("chunk_coord", {
-                enabled: true,
-                component_count: 2,
-                buffer_index: 1,
-                component_type: GL.UNSIGNED_SHORT,
-                divisor: 1,
-            }),
-        };
-
-        const result: BufferedGeometry = {
-            attributes: attr,
-            draw_mode: GL.TRIANGLES,
-            index_buffer: {buffer: this.indices, target: GL.ELEMENT_ARRAY_BUFFER},
-            buffers: [
-                {buffer: this.attributes.get("position"), target: GL.ARRAY_BUFFER},
-                {buffer: this.attributes.get("chunk_coord"), target: GL.ARRAY_BUFFER},
-            ],
-            instances: 1,
-        } as BufferedGeometry;
-        return result;
+        this.index_buffer = indices.length < 65536 ? new Uint16Array(indices) : new Uint32Array(indices);
+        this.count = indices.length;
+        this.instances = 1;
     }
 }

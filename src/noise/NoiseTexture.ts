@@ -58,10 +58,7 @@ export class NoiseTexture implements HeightMapOptions {
             format: gl.RG,
             type: gl.FLOAT,
             internal_format: gl.RG32F,
-            flip: true,
         });
-
-        this.drawTexture(0, 0);
     }
 
     public generateCellsInView(
@@ -140,8 +137,8 @@ export class NoiseTexture implements HeightMapOptions {
         const height = this.z_cells * this.z_chunks;
         const c = this.components;
 
-        for (let iz = z * this.z_cells; iz < z * this.z_cells + this.z_cells; iz++) {
-            for (let ix = x * this.x_cells; ix < x * this.x_cells + this.x_cells; ix++) {
+        for (let iz = z * this.z_cells - 1; iz <= z * this.z_cells + this.z_cells; iz++) {
+            for (let ix = x * this.x_cells - 1; ix <= x * this.x_cells + this.x_cells; ix++) {
                 const x0 = (ix * this.chunk_width_x) / this.x_cells;
                 const z0 = (iz * this.chunk_width_x) / this.z_cells;
                 const {floor, ceil} = this.height_map.getFloorAndCeiling(x0, z0);
