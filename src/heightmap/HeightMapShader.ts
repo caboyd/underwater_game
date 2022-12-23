@@ -10,7 +10,7 @@ export const HeightMapShaderSource: ShaderSource = {
     name: "HeightMapShader",
     vert: heightMapVert,
     frag: ShaderSource.PBR.frag,
-    valid_defines: new Set([ShaderSource.Define.SHADOWS]),
+    valid_define_flags: ShaderSource.Define_Flags.SHADOWS,
     intial_uniforms: {
         ...ShaderSource.PBR.intial_uniforms,
         u_height_map_sampler: 9,

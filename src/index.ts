@@ -40,7 +40,7 @@ let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 
-let light_toggle: boolean = false;
+let light_toggle: boolean = true;
 
 await (async function () {
     canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -76,7 +76,8 @@ async function initScene() {
 
     fps_control = new IWO.FPSControl(camera, {forward_sprint_modifier: 5});
 
-    gl.clearColor(60 / 255, 60 / 255, 95 / 255, 1.0);
+    const intensity = 0.08;
+    gl.clearColor(0 / 255, (60 / 255) * intensity, (95 / 255) * intensity, 1.0);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
@@ -115,19 +116,26 @@ async function initScene() {
     grid = new IWO.MeshInstance(grid_mesh, grid_mat);
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
-    const doodad_url = root_url + "obj/doodads/";
-    await initDoodad("starfish_low.obj", doodad_url, "starfish", [0.0015, 0.0015, 0.0015]);
-    await initDoodad("seashell_low.obj", doodad_url, "seashell", [0.02, 0.02, 0.02]);
+    const obj_url = root_url + "obj/doodads/";
+    const image_url = root_url + "images/";
+    await initDoodadObj("starfish_low.obj", obj_url, "starfish", [0.0015, 0.0015, 0.0015]);
+    await initDoodadObj("seashell_low.obj", obj_url, "seashell", [0.02, 0.02, 0.02]);
     // await initDoodad("plant3.obj", doodad_url, "plant3", [2, 2, 2]);
     // await initDoodad("plant6.obj", doodad_url, "plant6", [0.6, 0.6, 0.6]);
     // await initDoodad("grass.obj", doodad_url, "grass", [0.25, 0.25, 0.25]);
     // await initDoodad("pale_fan.obj", doodad_url, "pale_fan", [0.25, 0.25, 0.25]);
     // await initDoodad("dropwort.obj", doodad_url, "dropwort_single", [0.25, 0.25, 0.25]);
+    await initDoodadBillboard("five_plants.png", image_url, "five_plants", [1, 1, 1]);
+    await initDoodadBillboard("green_algae2.png", image_url, "green_algae2", [1, 1, 1]);
+    await initDoodadBillboard("kelp.png", image_url, "kelp", [1, 1, 1]);
+    await initDoodadBillboard("seaweed_tall.png", image_url, "seaweed_tall", [1, 1, 1]);
+    await initDoodadBillboard("seaweed_wide.png", image_url, "seaweed_wide", [1, 1, 1]);
+    await initDoodadBillboard("together.png", image_url, "together", [1, 1, 1]);
 
     //generate random doodads
     const temp_translate = mat4.create();
 
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 15000; i++) {
         let key = getRandomKey(doodad_map);
         const instance = doodad_map.get(key)!;
 
@@ -147,16 +155,14 @@ async function initScene() {
 
     function getRandomKey(collection: Map<string, unknown>) {
         let keys = Array.from(collection.keys());
-        return keys[Math.floor(Math.random() * keys.length)];
+        let r = Math.floor(Math.random() * keys.length);
+        //to lower probability of 3d doodads
+        if (r == 0 || r == 1) r = Math.floor(Math.random() * keys.length);
+        if (r == 0 || r == 1) r = Math.floor(Math.random() * keys.length);
+        return keys[r];
     }
 
-    function randomInt(min: number, max: number) {
-        min = Math.ceil(min);
-        max = Math.floor(max);
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
-
-    async function initDoodad(
+    async function initDoodadObj(
         file_name: string,
         base_url: string,
         object_name: string,
@@ -168,10 +174,31 @@ async function initScene() {
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
         doodad_map.set(object_name, instance);
     }
+
+    async function initDoodadBillboard(
+        file_name: string,
+        base_url: string,
+        object_name: string,
+        scale: vec3 = vec3.fromValues(1, 1, 1),
+    ) {
+        const tex = await IWO.TextureLoader.load(gl, file_name, base_url, {
+            flip: true,
+            format: gl.RGBA,
+            internal_format: gl.SRGB8_ALPHA8,
+        });
+        const mat = new IWO.PBRMaterial({is_billboard: true, albedo_texture: tex, light_factor: [0.9, 0.9, 0.9]});
+        const quad = new IWO.QuadGeometry();
+        const mesh = new IWO.Mesh(gl, quad);
+        const instance = new IWO.InstancedMesh(mesh, mat);
+        mat4.scale(instance.model_matrix, instance.model_matrix, scale);
+        mat4.translate(instance.model_matrix, instance.model_matrix, [0, 0.5, 0]);
+        doodad_map.set(object_name, instance);
+    }
 }
 
 function drawScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.disable(gl.BLEND);
 
     camera.getViewMatrix(view_matrix);
     const v = view_matrix;
@@ -184,7 +211,7 @@ function drawScene() {
     const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
     const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
 
-    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 14, 4);
+    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
 
     ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
     ceiling_chunk.mesh.instances = chunk_coords.length / 2;
@@ -194,9 +221,13 @@ function drawScene() {
     ceiling_chunk.render(renderer, v, p);
     floor_chunk.render(renderer, v, p);
 
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.DST_ALPHA);
     for (const [key, doodad] of doodad_map) {
         doodad.render(renderer, v, p);
     }
+
     //grid.render(renderer, v, p);
     //console.log(renderer.stats.index_draw_count, renderer.stats.vertex_draw_count);
     renderer.resetStats();
@@ -222,13 +253,13 @@ function update() {
 function setupLights() {
     const uniforms = new Map();
     if (light_toggle) {
-        const ambient_intensity = 0.01;
+        const ambient_intensity = 0.08;
         const ambient_color = [
             (ambient_intensity * 0) / 255,
             (ambient_intensity * 60) / 255,
             (ambient_intensity * 95) / 255,
         ];
-        const light_intensity = 20;
+        const light_intensity = 10;
         const light_color = [
             (light_intensity * 254) / 255,
             (light_intensity * 238) / 255,
