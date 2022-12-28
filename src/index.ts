@@ -11,7 +11,7 @@ let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
 
-const root_url = "../iwo-assets/underwater_game/";
+const root_url = "/iwo-assets/underwater_game/";
 const view_matrix: mat4 = mat4.create();
 const proj_matrix: mat4 = mat4.create();
 
