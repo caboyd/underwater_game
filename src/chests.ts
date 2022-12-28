@@ -21,8 +21,8 @@ export class Chests {
 
         const [w, h] = [height_map.getWidth(), height_map.getHeight()];
         //put first chest near center
-        const x = w / 2; //+ (Math.random() * 5 - 2.5);
-        const z = h / 2; //+ (Math.random() * 5 - 2.5);
+        const x = w / 2 + (Math.random() * 15 - 7.5);
+        const z = h / 2 + (Math.random() * 15 - 7.5);
         const y = height_map.getFloorAndCeiling(x, z).floor;
         c.positions.push([x, y, z]);
 
@@ -44,6 +44,7 @@ export class Chests {
                 const center = vec3.add(vec3.create(), [x, y, z], height_map.getNormalAtFloor(x, z));
                 mat4.targetTo(mat, [x, y, z], center, [0, 0, 1]);
                 mat4.rotateX(mat, mat, Math.PI / 2);
+                mat4.rotateY(mat, mat, Math.PI * Math.random());
                 //  mat4.translate(mat, mat, [x, y, z]);
                 c.instanced_mesh.addInstance(mat);
                 break;

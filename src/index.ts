@@ -106,7 +106,7 @@ async function initScene() {
     noise_tex = new NoiseTexture(gl, Height_Opt);
 
     height_map = new HeightMap(gl, Height_Opt);
-    height_map.material.albedo_texture = await IWO.TextureLoader.load(gl, "floor.png", root_url + "images/", {
+    height_map.material.albedo_texture = IWO.TextureLoader.load(gl, "floor.png", root_url + "images/", {
         flip: true,
         format: gl.RGBA,
         internal_format: gl.SRGB8_ALPHA8,
@@ -114,7 +114,7 @@ async function initScene() {
 
     const ceiling_mat = new HeightMapMaterial({
         height_map_texture: noise_tex.texture,
-        flip_y: true,
+        is_ceiling: true,
         height_map_options: Height_Opt,
         pbr_material_options: { albedo_texture: height_map.material.albedo_texture },
     });

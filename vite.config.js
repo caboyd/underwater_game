@@ -4,11 +4,10 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 import vitePluginString from "vite-plugin-string";
 
 export default defineConfig({
-    build: {},
     base: "./", //for proper relative links
     server: {
         port: 8080,
-        open: true,
+        open: false,
     },
     resolve: {
         alias: [

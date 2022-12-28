@@ -157,6 +157,8 @@ export class NoiseTexture implements HeightMapOptions {
         const width = this.x_cells * this.x_chunks;
         const height = this.z_cells * this.z_chunks;
         gl.bindTexture(gl.TEXTURE_2D, this.texture.texture_id);
+        //NOTE: must set this state to prevent bugs
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RG, gl.FLOAT, this.data);
     }
 }
