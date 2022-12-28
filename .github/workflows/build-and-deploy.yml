@@ -1,5 +1,5 @@
 # prettier-ignore
-name: Build with Rollup and Deploy gh-pages
+name: Build with Vite and Deploy gh-pages
 
 on:
   # Runs on pushes targeting the default branch
@@ -53,7 +53,7 @@ jobs:
       uses: actions/upload-pages-artifact@v1
       with:
         # Upload entire repository
-        path: 'docs/'
+        path: 'dist/'
 
     - name: Deploy to GitHub Pages
       id: deployment

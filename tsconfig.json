@@ -1,29 +1,23 @@
 {
-  "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "node",
-    "experimentalDecorators": true,
-    "resolveJsonModule": true,
-    "sourceMap": true,
-    "declaration": false,
-    "baseUrl": "./",
-    "paths":{
-      "*":[
-        "./ts-pbr-renderer/*",
-        "./ts-pbr-renderer/src/*",
-        "*"
-      ]
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ES2020",
+        "moduleResolution": "node",
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "noEmit": true,
+        "baseUrl": ".",
+        "paths": {
+            "*": ["*"]
+        },
+        "strict": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noImplicitReturns": true,
+        "strictNullChecks": true,
+        "strictPropertyInitialization": true
     },
-    "outDir": "build",
-    "strict": true,
-    "noImplicitReturns": true,
-    "strictNullChecks": true,
-    "strictPropertyInitialization" : true
-  },
-  "typedef":[
-    true,
-    "call-signature",
-    "property-declaration"
-  ]
+    "typedef": [true, "call-signature", "property-declaration"],
+    "exclude": ["dist", "node_modules"],
+    "include": ["src/*", "vite-env.d.ts"]
 }

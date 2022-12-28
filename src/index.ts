@@ -1,17 +1,17 @@
-import {glMatrix, mat4, vec3} from "gl-matrix";
+import { glMatrix, mat4, vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
-import {HeightMapOptions} from "src/heightmap/HeightMap";
-import {HeightMapChunkInstanced} from "src/heightmap/HeightMapChunkInstanced";
-import {HeightMapMaterial} from "src/heightmap/HeightMapMaterial";
-import {HeightMapShaderSource} from "src/heightmap/HeightMapShader";
-import {NoiseTexture} from "src/noise/NoiseTexture";
-import {HeightMap} from "./heightmap/HeightMap";
+import { HeightMapOptions } from "src/heightmap/HeightMap";
+import { HeightMapChunkInstanced } from "src/heightmap/HeightMapChunkInstanced";
+import { HeightMapMaterial } from "src/heightmap/HeightMapMaterial";
+import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
+import { NoiseTexture } from "src/noise/NoiseTexture";
+import { HeightMap } from "./heightmap/HeightMap";
 
 let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
 
-const root_url = "iwo-assets/underwater_game/";
+const root_url = "../iwo-assets/underwater_game/";
 const view_matrix: mat4 = mat4.create();
 const proj_matrix: mat4 = mat4.create();
 
@@ -42,7 +42,7 @@ let grid: IWO.MeshInstance;
 
 let light_toggle: boolean = true;
 
-await (async function () {
+(async function () {
     canvas = document.getElementById("canvas") as HTMLCanvasElement;
     gl = IWO.initGL(canvas);
 
@@ -57,7 +57,7 @@ await (async function () {
             glMatrix.toRadian(FOV),
             gl.drawingBufferWidth / gl.drawingBufferHeight,
             0.1,
-            1000.0,
+            1000.0
         );
     }
 
@@ -74,7 +74,7 @@ async function initScene() {
     camera = new IWO.Camera(cPos, [-0.7, 0, -0.7]);
     camera.getViewMatrix(view_matrix);
 
-    fps_control = new IWO.FPSControl(camera, {forward_sprint_modifier: 5});
+    fps_control = new IWO.FPSControl(camera, { forward_sprint_modifier: 5 });
 
     const intensity = 0.08;
     gl.clearColor(0 / 255, (60 / 255) * intensity, (95 / 255) * intensity, 1.0);
@@ -94,16 +94,16 @@ async function initScene() {
         height_map_texture: noise_tex.texture,
         flip_y: true,
         height_map_options: Height_Opt,
-        pbr_material_options: {albedo_image: height_map.material.albedo_image},
+        pbr_material_options: { albedo_image: height_map.material.albedo_image },
     });
-    const c_chunk = new HeightMapChunkInstanced({flip_y: true});
+    const c_chunk = new HeightMapChunkInstanced({ flip_y: true });
     const c_chunk_mesh = new IWO.Mesh(gl, c_chunk);
     ceiling_chunk = new IWO.MeshInstance(c_chunk_mesh, ceiling_mat);
 
     const floor_mat = new HeightMapMaterial({
         height_map_texture: noise_tex.texture,
         height_map_options: Height_Opt,
-        pbr_material_options: {albedo_image: height_map.material.albedo_image},
+        pbr_material_options: { albedo_image: height_map.material.albedo_image },
     });
 
     const f_chunk = new HeightMapChunkInstanced();
@@ -166,9 +166,9 @@ async function initScene() {
         file_name: string,
         base_url: string,
         object_name: string,
-        scale: vec3 = vec3.fromValues(1, 1, 1),
+        scale: vec3 = vec3.fromValues(1, 1, 1)
     ) {
-        const obj_data = await IWO.ObjLoader.promise(file_name, base_url, {flip_image_y: true});
+        const obj_data = await IWO.ObjLoader.promise(file_name, base_url, { flip_image_y: true });
         const mesh = new IWO.Mesh(gl, obj_data.objects[0].geometry);
         const instance = new IWO.InstancedMesh(mesh, obj_data.materials!);
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
@@ -179,14 +179,14 @@ async function initScene() {
         file_name: string,
         base_url: string,
         object_name: string,
-        scale: vec3 = vec3.fromValues(1, 1, 1),
+        scale: vec3 = vec3.fromValues(1, 1, 1)
     ) {
         const tex = await IWO.TextureLoader.load(gl, file_name, base_url, {
             flip: true,
             format: gl.RGBA,
             internal_format: gl.SRGB8_ALPHA8,
         });
-        const mat = new IWO.PBRMaterial({is_billboard: true, albedo_texture: tex, light_factor: [0.9, 0.9, 0.9]});
+        const mat = new IWO.PBRMaterial({ is_billboard: true, albedo_texture: tex, light_factor: [0.9, 0.9, 0.9] });
         const quad = new IWO.QuadGeometry();
         const mesh = new IWO.Mesh(gl, quad);
         const instance = new IWO.InstancedMesh(mesh, mat);
