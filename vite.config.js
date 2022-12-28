@@ -14,7 +14,10 @@ export default defineConfig({
         open: true,
     },
     resolve: {
-        alias: [{ find: "src", replacement: "/src" }],
+        alias: [
+            { find: "src", replacement: "/src" },
+            { find: "imgui-js", replacement: "/lib/imgui-js" },
+        ],
     },
     plugins: [
         vitePluginString({

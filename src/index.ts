@@ -1,4 +1,6 @@
 import { glMatrix, mat4, vec3 } from "gl-matrix";
+import * as ImGui from "imgui-js/imgui";
+import * as ImGui_Impl from "imgui-js/imgui_impl";
 import * as IWO from "iwo-renderer";
 import { HeightMapOptions } from "src/heightmap/HeightMap";
 import { HeightMapChunkInstanced } from "src/heightmap/HeightMapChunkInstanced";
@@ -6,8 +8,8 @@ import { HeightMapMaterial } from "src/heightmap/HeightMapMaterial";
 import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
 import { NoiseTexture } from "src/noise/NoiseTexture";
 import { HeightMap } from "./heightmap/HeightMap";
+import { PushStyleColor } from "imgui-js/imgui";
 
-let canvas: HTMLCanvasElement;
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
 
@@ -27,7 +29,6 @@ const Height_Opt: HeightMapOptions = {
 } as const;
 
 const cPos: vec3 = vec3.fromValues((Height_Opt.x_chunks * 6.25) / 2, -20, (Height_Opt.z_chunks * 6.25) / 2);
-//const cPos: vec3 = vec3.fromValues(4, 1, 4);
 let camera: IWO.Camera;
 
 let renderer: IWO.Renderer;
@@ -42,11 +43,27 @@ let grid: IWO.MeshInstance;
 
 let light_toggle: boolean = true;
 
+class Static<T> {
+    constructor(public value: T) {}
+    access: ImGui.Access<T> = (value: T = this.value): T => (this.value = value);
+}
+
+const game_info = {
+    score: 0,
+};
+
 (async function () {
-    canvas = document.getElementById("canvas") as HTMLCanvasElement;
+    const canvas = document.getElementById("canvas") as HTMLCanvasElement;
     gl = IWO.initGL(canvas);
 
     renderer = new IWO.Renderer(gl);
+
+    await ImGui.default();
+    ImGui.IMGUI_CHECKVERSION();
+    ImGui.CreateContext();
+    // // Setup style
+    ImGui.StyleColorsDark();
+    ImGui_Impl.Init(gl);
 
     function resizeCanvas(): void {
         canvas.width = window.innerWidth;
@@ -196,6 +213,32 @@ async function initScene() {
     }
 }
 
+let delta = 0;
+let last_now = Date.now();
+
+function update() {
+    const new_now = Date.now();
+    delta = new_now - last_now;
+    last_now = new_now;
+    delta = Math.min(delta, 20);
+
+    let io = ImGui.GetIO();
+    fps_control.mouse_active = !io.WantCaptureMouse;
+
+    //update player position
+    const last_pos = vec3.clone(camera.position);
+    fps_control.update();
+    //check if valid pos
+    let { floor, ceil } = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]);
+    if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
+    if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
+    if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
+
+    drawScene();
+    drawUI();
+    requestAnimationFrame(update);
+}
+
 function drawScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.disable(gl.BLEND);
@@ -234,28 +277,45 @@ function drawScene() {
     renderer.resetSaveBindings();
 }
 
-let delta = 0;
-let last_now = Date.now();
+function drawUI(): void {
+    //imgui render
+    ImGui_Impl.NewFrame(0);
+    ImGui.NewFrame();
+    const frame_width = 225;
+    const frame_height = 150;
+    ImGui.SetNextWindowPos(new ImGui.ImVec2(gl.drawingBufferWidth - frame_width, ImGui.Cond.Always));
+    ImGui.SetNextWindowSize(new ImGui.ImVec2(frame_width, frame_height), ImGui.Cond.Always);
+    ImGui.SetNextWindowSizeConstraints(
+        new ImGui.ImVec2(frame_width, frame_height),
+        new ImGui.ImVec2(frame_width, frame_height)
+    );
+    const style = ImGui.GetStyle();
+    style.WindowBorderSize = 0.0;
 
-function update() {
-    const new_now = Date.now();
-    delta = new_now - last_now;
-    last_now = new_now;
-    delta = Math.min(delta, 20);
+    {
+        ImGui.Begin(
+            "Game Info",
+            null,
+            ImGui.ImGuiWindowFlags.AlwaysAutoResize |
+                ImGui.ImGuiWindowFlags.NoResize |
+                ImGui.ImGuiWindowFlags.NoMove |
+                ImGui.ImGuiWindowFlags.NoBackground
+        );
+        let { x, y, z } = {
+            x: camera.position[0].toFixed(2),
+            y: camera.position[1].toFixed(2),
+            z: camera.position[2].toFixed(2),
+        };
+        ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
+        ImGui.Text(`pos: ${x}, ${y}, ${z} `);
+        ImGui.PopStyleColor();
+        ImGui.End();
+    }
 
-    // console.log(JSON.stringify(camera.getViewMatrix(mat4.create())));
+    ImGui.EndFrame();
+    ImGui.Render();
 
-    //update player position
-    const last_pos = vec3.clone(camera.position);
-    fps_control.update();
-    //check if valid pos
-    let { floor, ceil } = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]);
-    if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
-    if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
-    if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
-
-    drawScene();
-    requestAnimationFrame(update);
+    ImGui_Impl.RenderDrawData(ImGui.GetDrawData());
 }
 
 function setupLights() {
