@@ -77,7 +77,7 @@ async function initScene() {
     fps_control = new IWO.FPSControl(camera, { forward_sprint_modifier: 5 });
 
     const intensity = 0.08;
-    gl.clearColor(0 / 255, (60 / 255) * intensity, (95 / 255) * intensity, 1.0);
+    gl.clearColor(1 / 255, (55 / 255) * intensity, (75 / 255) * intensity, 1.0);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
@@ -253,7 +253,7 @@ function update() {
 function setupLights() {
     const uniforms = new Map();
     if (light_toggle) {
-        const ambient_intensity = 0.08;
+        const ambient_intensity = 0.02;
         const ambient_color = [
             (ambient_intensity * 0) / 255,
             (ambient_intensity * 60) / 255,
@@ -261,13 +261,15 @@ function setupLights() {
         ];
         const light_intensity = 10;
         const light_color = [
-            (light_intensity * 254) / 255,
-            (light_intensity * 238) / 255,
-            (light_intensity * 224) / 255,
+            (light_intensity * 60) / 255,
+            (light_intensity * 60) / 255,
+            (light_intensity * 75) / 255,
         ];
         uniforms.set("u_lights[0].position", [camera.position[0], camera.position[1], camera.position[2], 1]);
         uniforms.set("u_lights[0].color", light_color);
         uniforms.set("light_ambient", ambient_color);
+        uniforms.set("u_lights[0].linear_falloff", 0.2);
+        uniforms.set("u_lights[0].squared_falloff", 0.004);
     } else {
         const ambient_intensity = 0.2;
         const ambient_color = [
