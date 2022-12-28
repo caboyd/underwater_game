@@ -1,6 +1,6 @@
-import {vec2, vec3} from "gl-matrix";
-import {Texture2D} from "iwo-renderer";
-import {DefaultHeightMapOptions, HeightMap, HeightMapOptions} from "src/heightmap/HeightMap";
+import { vec2, vec3 } from "gl-matrix";
+import { Texture2D } from "iwo-renderer";
+import { DefaultHeightMapOptions, HeightMap, HeightMapOptions } from "src/heightmap/HeightMap";
 
 const temp_pos2 = vec2.create();
 const temp_dir2 = vec2.create();
@@ -25,7 +25,7 @@ export class NoiseTexture implements HeightMapOptions {
     components: number = 2;
 
     constructor(gl: WebGL2RenderingContext, options?: Partial<HeightMapOptions>) {
-        const opt = {...DefaultHeightMapOptions, ...options};
+        const opt = { ...DefaultHeightMapOptions, ...options };
         this.x_chunks = opt.x_chunks;
         this.z_chunks = opt.z_chunks;
         this.x_cells = opt.x_cells;
@@ -67,7 +67,7 @@ export class NoiseTexture implements HeightMapOptions {
         dir: vec3,
         fov_radians: number,
         cell_range: number,
-        cell_radius: number,
+        cell_radius: number
     ): Uint16Array {
         let x_index = Math.floor(pos[0] / this.chunk_width_x);
         let z_index = Math.floor(pos[2] / this.chunk_width_z);
@@ -104,7 +104,7 @@ export class NoiseTexture implements HeightMapOptions {
                 vec2.set(
                     temp_chunk_center,
                     x * this.chunk_width_x + this.chunk_width_x / 2,
-                    z * this.chunk_width_z + +this.chunk_width_z,
+                    z * this.chunk_width_z + +this.chunk_width_z
                 );
 
                 //if angle between pos and each fov dir is less than angle between both fov dirs we are between
@@ -141,7 +141,7 @@ export class NoiseTexture implements HeightMapOptions {
             for (let ix = x * this.x_cells - 1; ix <= x * this.x_cells + this.x_cells; ix++) {
                 const x0 = (ix * this.chunk_width_x) / this.x_cells;
                 const z0 = (iz * this.chunk_width_x) / this.z_cells;
-                const {floor, ceil} = this.height_map.getFloorAndCeiling(x0, z0);
+                const { floor, ceil } = this.height_map.getFloorAndCeiling(x0, z0);
 
                 const index = iz * width * c + ix * c;
                 this.data[index + 0] = ceil;

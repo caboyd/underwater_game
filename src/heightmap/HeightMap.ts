@@ -1,8 +1,8 @@
-import {MeshInstance, Mesh, PBRMaterial, IndexBuffer} from "iwo-renderer";
-import {HeightMapChunk, HeightMapChunkOptions} from "src/heightmap/HeightMapChunk";
-import {Perlin} from "src/noise/Perlin";
-import {Worley} from "src/noise/Worley";
-import {vec2, vec3, glMatrix} from "gl-matrix";
+import { MeshInstance, Mesh, PBRMaterial, IndexBuffer } from "iwo-renderer";
+import { HeightMapChunk, HeightMapChunkOptions } from "src/heightmap/HeightMapChunk";
+import { Perlin } from "src/noise/Perlin";
+import { Worley } from "src/noise/Worley";
+import { vec2, vec3, glMatrix } from "gl-matrix";
 
 export interface HeightMapOptions {
     x_chunks: number;
@@ -46,7 +46,7 @@ const temp_pos_to_chunk_center = vec2.create();
 const temp_chunk_center = vec2.create();
 const temp_xy_vec = vec2.create();
 const temp_half_width_vec = vec2.create();
-const result_sbfw = {s: 0, b: 0, f: 0, w: 0};
+const result_sbfw = { s: 0, b: 0, f: 0, w: 0 };
 
 export class HeightMap implements HeightMapOptions {
     public readonly floor_meshes: ActiveHeightMapMesh[][];
@@ -68,7 +68,7 @@ export class HeightMap implements HeightMapOptions {
     private floor_index_buffer: IndexBuffer | undefined;
 
     constructor(gl: WebGL2RenderingContext, options?: Partial<HeightMapOptions>) {
-        const opt = {...DefaultHeightMapOptions, ...options};
+        const opt = { ...DefaultHeightMapOptions, ...options };
 
         this.x_chunks = opt.x_chunks;
         this.z_chunks = opt.z_chunks;
@@ -81,11 +81,15 @@ export class HeightMap implements HeightMapOptions {
 
         this.floor_meshes = new Array(this.z_chunks)
             .fill(new Array())
-            .map(() => new Array(this.x_chunks).fill(new Array()).map(() => ({active: false} as ActiveHeightMapMesh)));
+            .map(() =>
+                new Array(this.x_chunks).fill(new Array()).map(() => ({ active: false } as ActiveHeightMapMesh))
+            );
         this.ceiling_meshes = new Array(this.z_chunks)
             .fill(new Array())
-            .map(() => new Array(this.x_chunks).fill(new Array()).map(() => ({active: false} as ActiveHeightMapMesh)));
-        this.material = new PBRMaterial({albedo_color: [1, 1, 1]});
+            .map(() =>
+                new Array(this.x_chunks).fill(new Array()).map(() => ({ active: false } as ActiveHeightMapMesh))
+            );
+        this.material = new PBRMaterial({ albedo_color: [1, 1, 1] });
         this.perlin = new Perlin(40, 70);
         const amp = Math.hypot(30, 30) / 2;
         this.worley = new Worley(30, amp);
@@ -110,7 +114,7 @@ export class HeightMap implements HeightMapOptions {
                 x_cells: this.x_cells,
                 z_cells: this.z_cells,
                 flip_y: true,
-            },
+            }
         );
         const floor_chunk = new HeightMapChunk(
             x * this.chunk_width_x,
@@ -123,50 +127,22 @@ export class HeightMap implements HeightMapOptions {
                 tex_z_cells: this.tex_z_cells,
                 x_cells: this.x_cells,
                 z_cells: this.z_cells,
-            },
+            }
         );
 
-        let m = new Mesh(gl, ceiling_chunk, {reuse_index_buffer: this.ceiling_index_buffer});
+        let m = new Mesh(gl, ceiling_chunk, { reuse_index_buffer: this.ceiling_index_buffer });
         if (!this.ceiling_index_buffer) this.ceiling_index_buffer = m.index_buffer;
         this.ceiling_meshes[z][x].mesh = new MeshInstance(m, this.material);
-        m = new Mesh(gl, floor_chunk, {reuse_index_buffer: this.floor_index_buffer});
+        m = new Mesh(gl, floor_chunk, { reuse_index_buffer: this.floor_index_buffer });
         if (!this.floor_index_buffer) this.floor_index_buffer = m.index_buffer;
         this.floor_meshes[z][x].mesh = new MeshInstance(m, this.material);
     }
 
-    private init(gl: WebGL2RenderingContext) {
-        let ceiling_index_buffer: IndexBuffer | undefined;
-        let floor_index_buffer: IndexBuffer | undefined;
-
-        const floor_func = this.getFloorNoiseFunc();
-        const ceiling_func = this.getCeilingNoiseFunc();
-
-        for (let z = 0; z < this.z_chunks; z++) {
-            this.floor_meshes[z] = [];
-            this.ceiling_meshes[z] = [];
-            for (let x = 0; x < this.x_chunks; x++) {
-                const ceiling_chunk = new HeightMapChunk(x * this.chunk_width_x, z * this.chunk_width_z, ceiling_func, {
-                    x_width: this.chunk_width_x,
-                    z_width: this.chunk_width_z,
-                    x_cells: this.x_cells,
-                    z_cells: this.z_cells,
-                    flip_y: true,
-                });
-                const floor_chunk = new HeightMapChunk(x * this.chunk_width_x, z * this.chunk_width_z, floor_func, {
-                    x_width: this.chunk_width_x,
-                    z_width: this.chunk_width_z,
-                    x_cells: this.x_cells,
-                    z_cells: this.z_cells,
-                });
-
-                let m = new Mesh(gl, ceiling_chunk, {reuse_index_buffer: ceiling_index_buffer});
-                if (!ceiling_index_buffer) ceiling_index_buffer = m.index_buffer;
-                this.ceiling_meshes[z][x].mesh = new MeshInstance(m, this.material);
-                m = new Mesh(gl, floor_chunk, {reuse_index_buffer: floor_index_buffer});
-                if (!floor_index_buffer) floor_index_buffer = m.index_buffer;
-                this.floor_meshes[z][x].mesh = new MeshInstance(m, this.material);
-            }
-        }
+    public getWidth(): number {
+        return this.chunk_width_x * this.x_chunks;
+    }
+    public getHeight(): number {
+        return this.chunk_width_z * this.z_chunks;
     }
 
     private calculateHeightVars(result: Result_SBFW, x: number, y: number) {
@@ -196,7 +172,7 @@ export class HeightMap implements HeightMapOptions {
 
     public getFloorAndCeiling(x: number, z: number) {
         this.calculateHeightVars(result_sbfw, x, z);
-        const {s, b, f, w} = result_sbfw;
+        const { s, b, f, w } = result_sbfw;
 
         let floor;
         if (s <= 0) floor = b + 3;
@@ -206,13 +182,13 @@ export class HeightMap implements HeightMapOptions {
         if (s <= 0) ceil = b - 3;
         else ceil = b * f + s - (w * w * f) / s;
 
-        return {floor, ceil};
+        return { floor, ceil };
     }
 
     private getFloorNoiseFunc() {
         return (x: number, z: number) => {
             this.calculateHeightVars(result_sbfw, x, z);
-            const {s, b, f, w} = result_sbfw;
+            const { s, b, f, w } = result_sbfw;
 
             if (s <= 0) return b + 3;
             return b * f - s + (w * w * f) / s;
@@ -221,7 +197,7 @@ export class HeightMap implements HeightMapOptions {
     private getCeilingNoiseFunc() {
         return (x: number, z: number) => {
             this.calculateHeightVars(result_sbfw, x, z);
-            const {s, b, f, w} = result_sbfw;
+            const { s, b, f, w } = result_sbfw;
 
             if (s <= 0) return b - 3;
             return b * f + s - (w * w * f) / s;
@@ -234,7 +210,7 @@ export class HeightMap implements HeightMapOptions {
      */
     public validFloorPosition(x: number, z: number, distance: number): number | false {
         this.calculateHeightVars(result_sbfw, x, z);
-        const {s, b, f, w} = result_sbfw;
+        const { s, b, f, w } = result_sbfw;
 
         if (s <= 0) return false;
         const floor = b * f - s + (w * w * f) / s;
@@ -242,13 +218,28 @@ export class HeightMap implements HeightMapOptions {
         return ceiling - floor >= distance ? floor : false;
     }
 
+    public getNormalAtFloor(x: number, z: number): vec3 {
+        const [left, right, top, bottom] = [
+            vec3.fromValues(x - 0.1, this.getFloorAndCeiling(x - 0.1, z).floor, z),
+            vec3.fromValues(x + 0.1, this.getFloorAndCeiling(x + 0.1, z).floor, z),
+            vec3.fromValues(x, this.getFloorAndCeiling(x, z - 0.1).floor, z - 0.1),
+            vec3.fromValues(x, this.getFloorAndCeiling(x, z + 0.1).floor, z + 0.1),
+        ];
+        const cross = vec3.cross(
+            vec3.create(),
+            vec3.sub(vec3.create(), right, left),
+            vec3.sub(vec3.create(), bottom, top)
+        );
+        vec3.normalize(cross, cross);
+        return cross;
+    }
     public activateMeshesInView(
         gl: WebGL2RenderingContext,
         pos: vec3,
         dir: vec3,
         fov_radians: number,
         cell_range: number,
-        cell_radius: number,
+        cell_radius: number
     ): void {
         vec2.set(temp_pos2, pos[0], pos[2]);
         vec2.set(temp_dir2, dir[0], dir[2]);
@@ -270,7 +261,7 @@ export class HeightMap implements HeightMapOptions {
                 vec2.set(
                     temp_chunk_center,
                     x * this.chunk_width_x + this.chunk_width_x / 2,
-                    z * this.chunk_width_z + +this.chunk_width_z,
+                    z * this.chunk_width_z + +this.chunk_width_z
                 );
 
                 //if angle between pos and each fov dir is less than angle between both fov dirs we are between

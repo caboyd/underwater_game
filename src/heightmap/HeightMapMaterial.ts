@@ -1,9 +1,8 @@
-import {PBRMaterial, Shader, ShaderSource, Texture2D} from "iwo-renderer";
+import { PBRMaterial, Shader, ShaderSource, Texture2D } from "iwo-renderer";
 
-import {PBRMaterialOptions} from "iwo-renderer/dist/materials/PBRMaterial";
-import {DefaultHeightMapChunk2Options, HeightMapChunkInstancedOptions} from "src/heightmap/HeightMapChunkInstanced";
-import {HeightMapShaderSource} from "./HeightMapShader";
-import {DefaultHeightMapOptions, HeightMapOptions} from "src/heightmap/HeightMap";
+import { PBRMaterialOptions } from "iwo-renderer/dist/materials/PBRMaterial";
+import { DefaultHeightMapOptions, HeightMapOptions } from "src/heightmap/HeightMap";
+import { HeightMapShaderSource } from "./HeightMapShader";
 
 export type HeightMapMaterialOptions = {
     height_map_texture: Texture2D;
@@ -21,7 +20,7 @@ export class HeightMapMaterial extends PBRMaterial {
         super(options.pbr_material_options);
         this.noise_texture = options.height_map_texture;
         this.flip_y = options.flip_y ?? false;
-        this.height_map_options = {...DefaultHeightMapOptions, ...options.height_map_options};
+        this.height_map_options = { ...DefaultHeightMapOptions, ...options.height_map_options };
     }
 
     public activate(gl: WebGL2RenderingContext, shader: Shader): void {

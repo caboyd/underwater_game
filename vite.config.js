@@ -4,10 +4,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 import vitePluginString from "vite-plugin-string";
 
 export default defineConfig({
-    build: {
-        minify: true,
-        sourcemap: true,
-    },
+    build: {},
     base: "./", //for proper relative links
     server: {
         port: 8080,

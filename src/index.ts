@@ -7,8 +7,8 @@ import { HeightMapChunkInstanced } from "src/heightmap/HeightMapChunkInstanced";
 import { HeightMapMaterial } from "src/heightmap/HeightMapMaterial";
 import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
 import { NoiseTexture } from "src/noise/NoiseTexture";
+import { Chests } from "./chests";
 import { HeightMap } from "./heightmap/HeightMap";
-import { PushStyleColor } from "imgui-js/imgui";
 
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
@@ -40,6 +40,7 @@ let noise_tex: NoiseTexture;
 let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
+let chests: Chests;
 
 let light_toggle: boolean = true;
 
@@ -105,13 +106,17 @@ async function initScene() {
     noise_tex = new NoiseTexture(gl, Height_Opt);
 
     height_map = new HeightMap(gl, Height_Opt);
-    height_map.material.albedo_image = await IWO.ImageLoader.promise("floor.png", root_url + "images/");
+    height_map.material.albedo_texture = await IWO.TextureLoader.load(gl, "floor.png", root_url + "images/", {
+        flip: true,
+        format: gl.RGBA,
+        internal_format: gl.SRGB8_ALPHA8,
+    });
 
     const ceiling_mat = new HeightMapMaterial({
         height_map_texture: noise_tex.texture,
         flip_y: true,
         height_map_options: Height_Opt,
-        pbr_material_options: { albedo_image: height_map.material.albedo_image },
+        pbr_material_options: { albedo_texture: height_map.material.albedo_texture },
     });
     const c_chunk = new HeightMapChunkInstanced({ flip_y: true });
     const c_chunk_mesh = new IWO.Mesh(gl, c_chunk);
@@ -120,7 +125,7 @@ async function initScene() {
     const floor_mat = new HeightMapMaterial({
         height_map_texture: noise_tex.texture,
         height_map_options: Height_Opt,
-        pbr_material_options: { albedo_image: height_map.material.albedo_image },
+        pbr_material_options: { albedo_texture: height_map.material.albedo_texture },
     });
 
     const f_chunk = new HeightMapChunkInstanced();
@@ -132,6 +137,8 @@ async function initScene() {
     const grid_mesh = new IWO.Mesh(gl, grid_geom);
     grid = new IWO.MeshInstance(grid_mesh, grid_mat);
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
+
+    chests = await Chests.Create(gl, height_map);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
@@ -150,22 +157,27 @@ async function initScene() {
     await initDoodadBillboard("together.png", image_url, "together", [1, 1, 1]);
 
     //generate random doodads
-    const temp_translate = mat4.create();
-
+    const mat = mat4.create();
     for (let i = 0; i < 15000; i++) {
         let key = getRandomKey(doodad_map);
         const instance = doodad_map.get(key)!;
 
-        //place randomly in area -50xz to +50xz
+        //place randomly in area 0xz to +500xz
         for (let j = 0; j < 25000; j++) {
             const x = Math.random() * 500;
             const z = Math.random() * 500;
             const y = height_map.validFloorPosition(x, z, 1);
             if (y === false) continue;
 
-            mat4.identity(temp_translate);
-            mat4.fromTranslation(temp_translate, [x, y, z]);
-            instance.addInstance(temp_translate);
+            mat4.identity(mat);
+            if (key == "starfish" || key == "seashell") {
+                const center = vec3.add(vec3.create(), [x, y, z], height_map.getNormalAtFloor(x, z));
+                mat4.targetTo(mat, [x, y, z], center, [0, 0, 1]);
+                mat4.rotateX(mat, mat, Math.PI / 2);
+            } else {
+                mat4.fromTranslation(mat, [x, y, z]);
+            }
+            instance.addInstance(mat);
             break;
         }
     }
@@ -263,6 +275,8 @@ function drawScene() {
 
     ceiling_chunk.render(renderer, v, p);
     floor_chunk.render(renderer, v, p);
+
+    chests.instanced_mesh.render(renderer, v, p);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);

@@ -13,6 +13,7 @@ export const HeightMapShaderSource: ShaderSource = {
     valid_define_flags: ShaderSource.Define_Flag.SHADOWS,
     intial_uniforms: {
         ...ShaderSource.PBR.intial_uniforms,
+        //"u_material.albedo_sampler": 9,
         u_height_map_sampler: 9,
     },
 };
