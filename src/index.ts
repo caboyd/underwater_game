@@ -26,7 +26,7 @@ const Height_Opt: HeightMapOptions = {
     chunk_width_x: 6.25,
 } as const;
 
-const cPos: vec3 = vec3.fromValues((Height_Opt.x_chunks * 6.25) / 2, 5, (Height_Opt.z_chunks * 6.25) / 2);
+const cPos: vec3 = vec3.fromValues((Height_Opt.x_chunks * 6.25) / 2, -20, (Height_Opt.z_chunks * 6.25) / 2);
 //const cPos: vec3 = vec3.fromValues(4, 1, 4);
 let camera: IWO.Camera;
 
@@ -243,8 +243,16 @@ function update() {
     last_now = new_now;
     delta = Math.min(delta, 20);
 
-    fps_control.update();
     // console.log(JSON.stringify(camera.getViewMatrix(mat4.create())));
+
+    //update player position
+    const last_pos = vec3.clone(camera.position);
+    fps_control.update();
+    //check if valid pos
+    let { floor, ceil } = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]);
+    if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
+    if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
+    if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
 
     drawScene();
     requestAnimationFrame(update);
@@ -260,11 +268,7 @@ function setupLights() {
             (ambient_intensity * 95) / 255,
         ];
         const light_intensity = 10;
-        const light_color = [
-            (light_intensity * 60) / 255,
-            (light_intensity * 60) / 255,
-            (light_intensity * 75) / 255,
-        ];
+        const light_color = [(light_intensity * 60) / 255, (light_intensity * 60) / 255, (light_intensity * 75) / 255];
         uniforms.set("u_lights[0].position", [camera.position[0], camera.position[1], camera.position[2], 1]);
         uniforms.set("u_lights[0].color", light_color);
         uniforms.set("light_ambient", ambient_color);
