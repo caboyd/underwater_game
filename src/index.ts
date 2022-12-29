@@ -30,6 +30,7 @@ const Height_Opt: HeightMapOptions = {
 
 const cPos: vec3 = vec3.fromValues((Height_Opt.x_chunks * 6.25) / 2, -20, (Height_Opt.z_chunks * 6.25) / 2);
 let camera: IWO.Camera;
+const PLAYER_SIZE = 0.5;
 
 let renderer: IWO.Renderer;
 let fps_control: IWO.FPSControl;
@@ -246,6 +247,19 @@ function update() {
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
 
+    //check for chest player intersections
+    const player_pos = vec3.clone(camera.position);
+    for (let i = 0; i < chests.positions.length; i++) {
+        const chest_pos = chests.positions[i];
+        const dist = vec3.squaredDistance(player_pos, chest_pos);
+        if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
+            chests.removeChest(i);
+            game_info.score += 100;
+        }
+    }
+
+    
+
     drawScene();
     drawUI();
     requestAnimationFrame(update);
@@ -322,6 +336,7 @@ function drawUI(): void {
         };
         ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
         ImGui.Text(`pos: ${x}, ${y}, ${z} `);
+        ImGui.Text(`score: ${game_info.score} `);
         ImGui.PopStyleColor();
         ImGui.End();
     }

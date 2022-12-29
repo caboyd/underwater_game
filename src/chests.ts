@@ -52,4 +52,10 @@ export class Chests {
         }
         return c;
     }
+
+    public removeChest(index: number): void {
+        this.positions.splice(index, 1);
+        this.instanced_mesh.instance_matrix.splice(index, 1);
+        this.instanced_mesh.refreshBuffer();
+    }
 }
