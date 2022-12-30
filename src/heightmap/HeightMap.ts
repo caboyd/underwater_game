@@ -67,7 +67,7 @@ export class HeightMap implements HeightMapOptions {
     private ceiling_index_buffer: IndexBuffer | undefined;
     private floor_index_buffer: IndexBuffer | undefined;
 
-    constructor(gl: WebGL2RenderingContext, options?: Partial<HeightMapOptions>) {
+    constructor(options?: Partial<HeightMapOptions>) {
         const opt = { ...DefaultHeightMapOptions, ...options };
 
         this.x_chunks = opt.x_chunks;

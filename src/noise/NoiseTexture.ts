@@ -43,7 +43,7 @@ export class NoiseTexture implements HeightMapOptions {
         const height = this.z_cells * this.z_chunks;
         this.data = new Float32Array(width * height * this.components).fill(0);
 
-        this.height_map = new HeightMap(gl, {
+        this.height_map = new HeightMap({
             x_chunks: this.x_chunks,
             z_chunks: this.z_chunks,
             z_cells: this.x_cells,

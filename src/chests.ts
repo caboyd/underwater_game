@@ -1,15 +1,20 @@
+import { mat4, vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
-import { mat3, mat4, vec3 } from "gl-matrix";
 import { HeightMap } from "src/heightmap/HeightMap";
+import { ChunkEntities } from "./ChunkEntities";
 
 export class Chests {
     instanced_mesh!: IWO.InstancedMesh;
-    positions: vec3[] = [];
     radius: number = 0.4;
 
     private constructor() {}
 
-    public static async Create(gl: WebGL2RenderingContext, height_map: HeightMap, num_chests = 50): Promise<Chests> {
+    public static async Create(
+        gl: WebGL2RenderingContext,
+        height_map: HeightMap,
+        chunked_entities: ChunkEntities,
+        num_chests = 50
+    ): Promise<Chests> {
         const c = new Chests();
 
         const data = await IWO.ObjLoader.promise("treasure_chest.obj", "iwo-assets/underwater_game/obj/doodads/", {
@@ -21,16 +26,16 @@ export class Chests {
 
         const [w, h] = [height_map.getWidth(), height_map.getHeight()];
         //put first chest near center
-        const x = w / 2 + (Math.random() * 15 - 7.5);
-        const z = h / 2 + (Math.random() * 15 - 7.5);
+        const x = w / 2 - 9.5;
+        const z = h / 2 - 9.5;
         const y = height_map.getFloorAndCeiling(x, z).floor;
-        c.positions.push([x, y, z]);
+        const pos = vec3.fromValues(x, y, z);
 
         const mat = mat4.create();
         const center = vec3.add(vec3.create(), [x, y, z], height_map.getNormalAtFloor(x, z));
         mat4.targetTo(mat, [x, y, z], center, [0, 0, 1]);
         mat4.rotateX(mat, mat, Math.PI / 2);
-        c.instanced_mesh.addInstance(mat);
+        chunked_entities.insert(x, z, { type: "chest", position: pos, instance: mat4.clone(mat) });
 
         for (let i = 0; i < num_chests - 1; i++) {
             for (let j = 0; j < 25000; j++) {
@@ -38,24 +43,30 @@ export class Chests {
                 const z = Math.random() * h;
                 const y = height_map.validFloorPosition(x, z, 1);
                 if (y === false) continue;
-                c.positions.push([x, y, z]);
                 mat4.identity(mat);
                 //make treasure chest normal match floor
-                const center = vec3.add(vec3.create(), [x, y, z], height_map.getNormalAtFloor(x, z));
-                mat4.targetTo(mat, [x, y, z], center, [0, 0, 1]);
+                const pos = vec3.fromValues(x, y, z);
+                const center = vec3.add(vec3.create(), pos, height_map.getNormalAtFloor(x, z));
+                mat4.targetTo(mat, pos, center, [0, 0, 1]);
                 mat4.rotateX(mat, mat, Math.PI / 2);
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
-                //  mat4.translate(mat, mat, [x, y, z]);
-                c.instanced_mesh.addInstance(mat);
+                chunked_entities.insert(x, z, { type: "chest", position: pos, instance: mat4.clone(mat) });
                 break;
             }
         }
         return c;
     }
 
-    public removeChest(index: number): void {
-        this.positions.splice(index, 1);
-        this.instanced_mesh.instance_matrix.splice(index, 1);
-        this.instanced_mesh.refreshBuffer();
+    public updateVisibleInstances(active_chunks: Uint16Array, chunked_entities: ChunkEntities): void {
+        this.instanced_mesh.instance_matrix.length = 0;
+        for (let i = 0; i < active_chunks.length; i += 2) {
+            const x = active_chunks[i];
+            const z = active_chunks[i + 1];
+            const entities = chunked_entities.getChunkEntities(x, z);
+            for (const e of entities) {
+                if (e.type !== "chest") continue;
+                this.instanced_mesh.addInstance(e.instance);
+            }
+        }
     }
 }

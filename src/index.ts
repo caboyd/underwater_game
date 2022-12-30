@@ -9,6 +9,7 @@ import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
 import { NoiseTexture } from "src/noise/NoiseTexture";
 import { Chests } from "./chests";
 import { HeightMap } from "./heightmap/HeightMap";
+import { ChunkEntities } from "src/ChunkEntities";
 
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
@@ -42,6 +43,7 @@ let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
+let chunked_entities: ChunkEntities;
 
 let light_toggle: boolean = true;
 
@@ -106,7 +108,7 @@ async function initScene() {
 
     noise_tex = new NoiseTexture(gl, Height_Opt);
 
-    height_map = new HeightMap(gl, Height_Opt);
+    height_map = new HeightMap(Height_Opt);
     height_map.material.albedo_texture = IWO.TextureLoader.load(gl, "floor.png", root_url + "images/", {
         flip: true,
         format: gl.RGBA,
@@ -139,7 +141,8 @@ async function initScene() {
     grid = new IWO.MeshInstance(grid_mesh, grid_mat);
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
-    chests = await Chests.Create(gl, height_map);
+    chunked_entities = new ChunkEntities(Height_Opt);
+    chests = await Chests.Create(gl, height_map, chunked_entities);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
@@ -238,6 +241,18 @@ function update() {
     let io = ImGui.GetIO();
     fps_control.mouse_active = !io.WantCaptureMouse;
 
+    setupLights();
+
+    const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+    const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
+
+    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
+
+    ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+    ceiling_chunk.mesh.instances = chunk_coords.length / 2;
+    floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+    floor_chunk.mesh.instances = chunk_coords.length / 2;
+
     //update player position
     const last_pos = vec3.clone(camera.position);
     fps_control.update();
@@ -247,18 +262,23 @@ function update() {
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
 
-    //check for chest player intersections
+    //find the 4 chunks surrounding player
+    const active_chunks = getSurroundingChunks(camera.position);
     const player_pos = vec3.clone(camera.position);
-    for (let i = 0; i < chests.positions.length; i++) {
-        const chest_pos = chests.positions[i];
-        const dist = vec3.squaredDistance(player_pos, chest_pos);
-        if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
-            chests.removeChest(i);
-            game_info.score += 100;
+    for (const chunk of active_chunks) {
+        const entities = chunked_entities.getChunkEntities(chunk[0], chunk[1]);
+        for (const e of entities) {
+            if (e.type !== "chest") continue;
+            const chest_pos = e.position;
+            const dist = vec3.squaredDistance(player_pos, chest_pos);
+            if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
+                chunked_entities.remove(e.id);
+                game_info.score += 100;
+            }
         }
     }
 
-    
+    chests.updateVisibleInstances(chunk_coords, chunked_entities);
 
     drawScene();
     drawUI();
@@ -274,18 +294,6 @@ function drawScene() {
     const p = proj_matrix;
 
     renderer.setPerFrameUniforms(v, p);
-
-    setupLights();
-
-    const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
-    const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
-
-    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
-
-    ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-    ceiling_chunk.mesh.instances = chunk_coords.length / 2;
-    floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-    floor_chunk.mesh.instances = chunk_coords.length / 2;
 
     ceiling_chunk.render(renderer, v, p);
     floor_chunk.render(renderer, v, p);
@@ -364,14 +372,14 @@ function setupLights() {
         uniforms.set("u_lights[0].linear_falloff", 0.2);
         uniforms.set("u_lights[0].squared_falloff", 0.004);
     } else {
-        const ambient_intensity = 0.2;
+        const ambient_intensity = 0.4;
         const ambient_color = [
             (ambient_intensity * 60) / 255,
             (ambient_intensity * 60) / 255,
             (ambient_intensity * 95) / 255,
         ];
         const sun_dir = [-1, 0.8, 1];
-        const sun_intensity = 6;
+        const sun_intensity = 2;
         const sun_color = [(sun_intensity * 254) / 255, (sun_intensity * 238) / 255, (sun_intensity * 224) / 255];
         uniforms.set("u_lights[0].position", [sun_dir[0], sun_dir[1], sun_dir[2], 0]);
         uniforms.set("u_lights[0].color", sun_color);
@@ -384,3 +392,27 @@ function setupLights() {
 document.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "l") light_toggle = !light_toggle;
 });
+
+function getSurroundingChunks(pos: vec3): [number, number][] {
+    const result: [number, number][] = [];
+    //bottom left
+    result.push([
+        Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
+        Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
+    ]);
+    result.push([
+        Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
+        Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
+    ]);
+    result.push([
+        Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
+        Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
+    ]);
+
+    //top right
+    result.push([
+        Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
+        Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
+    ]);
+    return result;
+}
