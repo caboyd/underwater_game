@@ -6,6 +6,7 @@ export type Entity = {
     type: "chest" | "rock";
     position: vec3;
     instance: mat4;
+    radius?: number;
 };
 
 export class ChunkEntities {
@@ -25,6 +26,8 @@ export class ChunkEntities {
     public insert(x_pos: number, z_pos: number, entity: Omit<Entity, "id">): void {
         const x_chunk = Math.floor(x_pos / this.opt.chunk_width_x);
         const z_chunk = Math.floor(z_pos / this.opt.chunk_width_z);
+        if (x_chunk >= this.opt.x_chunks || z_chunk >= this.opt.z_chunks) throw "chunk out of bounds";
+
         const id = z_chunk * 10_000_000 + x_chunk * 100_000 + this.entities[z_chunk][x_chunk].length;
         const e = entity as Entity;
         e.id = id;

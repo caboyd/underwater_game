@@ -10,6 +10,7 @@ import { NoiseTexture } from "src/noise/NoiseTexture";
 import { Chests } from "./chests";
 import { HeightMap } from "./heightmap/HeightMap";
 import { ChunkEntities } from "src/ChunkEntities";
+import { Rocks } from "src/Rocks";
 
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
@@ -43,6 +44,7 @@ let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
+let rocks: Rocks;
 let chunked_entities: ChunkEntities;
 
 let light_toggle: boolean = true;
@@ -143,6 +145,7 @@ async function initScene() {
 
     chunked_entities = new ChunkEntities(Height_Opt);
     chests = await Chests.Create(gl, height_map, chunked_entities);
+    rocks = await Rocks.Create(gl, height_map, chunked_entities);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
@@ -231,6 +234,7 @@ async function initScene() {
 
 let delta = 0;
 let last_now = Date.now();
+let last_camera_forward = vec3.create();
 
 function update() {
     const new_now = Date.now();
@@ -243,16 +247,6 @@ function update() {
 
     setupLights();
 
-    const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
-    const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
-
-    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
-
-    ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-    ceiling_chunk.mesh.instances = chunk_coords.length / 2;
-    floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-    floor_chunk.mesh.instances = chunk_coords.length / 2;
-
     //update player position
     const last_pos = vec3.clone(camera.position);
     fps_control.update();
@@ -261,6 +255,32 @@ function update() {
     if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
+
+    //check if view changed to determin what needs updating
+    const forward = camera.getForward();
+    let view_changed = false;
+    if (
+        last_camera_forward[0] !== forward[0] &&
+        last_camera_forward[1] !== forward[1] &&
+        last_camera_forward[2] !== forward[2]
+    ) {
+        view_changed = true;
+    }
+
+    if (view_changed) {
+        const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+        const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
+
+        const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
+
+        ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+        ceiling_chunk.mesh.instances = chunk_coords.length / 2;
+        floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+        floor_chunk.mesh.instances = chunk_coords.length / 2;
+
+        chests.updateVisibleInstances(chunk_coords, chunked_entities);
+        rocks.updateVisibleInstances(chunk_coords, chunked_entities);
+    }
 
     //find the 4 chunks surrounding player
     const active_chunks = getSurroundingChunks(camera.position);
@@ -277,8 +297,6 @@ function update() {
             }
         }
     }
-
-    chests.updateVisibleInstances(chunk_coords, chunked_entities);
 
     drawScene();
     drawUI();
@@ -299,6 +317,7 @@ function drawScene() {
     floor_chunk.render(renderer, v, p);
 
     chests.instanced_mesh.render(renderer, v, p);
+    rocks.instanced_mesh.render(renderer, v, p);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
