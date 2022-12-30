@@ -45,7 +45,7 @@ let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
 let rocks: Rocks;
-let chunked_entities: ChunkEntities;
+let chunk_entities: ChunkEntities;
 
 let light_toggle: boolean = true;
 
@@ -143,9 +143,9 @@ async function initScene() {
     grid = new IWO.MeshInstance(grid_mesh, grid_mat);
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
-    chunked_entities = new ChunkEntities(Height_Opt);
-    chests = await Chests.Create(gl, height_map, chunked_entities);
-    rocks = await Rocks.Create(gl, height_map, chunked_entities);
+    chunk_entities = new ChunkEntities(Height_Opt);
+    chests = await Chests.Create(gl, height_map, chunk_entities);
+    rocks = await Rocks.Create(gl, height_map, chunk_entities);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
@@ -173,16 +173,17 @@ async function initScene() {
         for (let j = 0; j < 25000; j++) {
             const x = Math.random() * 500;
             const z = Math.random() * 500;
-            const y = height_map.validFloorPosition(x, z, 1);
+            let y = height_map.validFloorPosition(x, z, 1);
             if (y === false) continue;
+            let { floor: floor, normal: normal } = getFloorNormalWithRocks([x, y, z]);
 
             mat4.identity(mat);
             if (key == "starfish" || key == "seashell") {
-                const center = vec3.add(vec3.create(), [x, y, z], height_map.getNormalAtFloor(x, z));
-                mat4.targetTo(mat, [x, y, z], center, [0, 0, 1]);
+                const center = vec3.add(vec3.create(), [x, floor, z], normal);
+                mat4.targetTo(mat, [x, floor, z], center, [0, 0, 1]);
                 mat4.rotateX(mat, mat, Math.PI / 2);
             } else {
-                mat4.fromTranslation(mat, [x, y, z]);
+                mat4.fromTranslation(mat, [x, floor, z]);
             }
             instance.addInstance(mat);
             break;
@@ -235,6 +236,7 @@ async function initScene() {
 let delta = 0;
 let last_now = Date.now();
 let last_camera_forward = vec3.create();
+let last_camera_pos = vec3.create();
 
 function update() {
     const new_now = Date.now();
@@ -251,7 +253,9 @@ function update() {
     const last_pos = vec3.clone(camera.position);
     fps_control.update();
     //check if valid pos
-    let { floor, ceil } = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]);
+    let ceil = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]).ceil;
+    let floor = getFloorNormalWithRocks(camera.position).floor;
+    console.log(floor);
     if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
@@ -260,12 +264,17 @@ function update() {
     const forward = camera.getForward();
     let view_changed = false;
     if (
-        last_camera_forward[0] !== forward[0] &&
-        last_camera_forward[1] !== forward[1] &&
-        last_camera_forward[2] !== forward[2]
+        last_camera_forward[0] !== forward[0] ||
+        last_camera_forward[1] !== forward[1] ||
+        last_camera_forward[2] !== forward[2] ||
+        last_camera_pos[0] !== camera.position[0] ||
+        last_camera_pos[1] !== camera.position[1] ||
+        last_camera_pos[2] !== camera.position[2]
     ) {
         view_changed = true;
     }
+    vec3.copy(last_camera_forward, forward);
+    vec3.copy(last_camera_pos, camera.position);
 
     if (view_changed) {
         const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
@@ -278,21 +287,21 @@ function update() {
         floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
         floor_chunk.mesh.instances = chunk_coords.length / 2;
 
-        chests.updateVisibleInstances(chunk_coords, chunked_entities);
-        rocks.updateVisibleInstances(chunk_coords, chunked_entities);
+        chests.updateVisibleInstances(chunk_coords, chunk_entities);
+        rocks.updateVisibleInstances(chunk_coords, chunk_entities);
     }
 
     //find the 4 chunks surrounding player
     const active_chunks = getSurroundingChunks(camera.position);
     const player_pos = vec3.clone(camera.position);
     for (const chunk of active_chunks) {
-        const entities = chunked_entities.getChunkEntities(chunk[0], chunk[1]);
+        const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
         for (const e of entities) {
             if (e.type !== "chest") continue;
             const chest_pos = e.position;
             const dist = vec3.squaredDistance(player_pos, chest_pos);
             if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
-                chunked_entities.remove(e.id);
+                chunk_entities.remove(e.id);
                 game_info.score += 100;
             }
         }
@@ -433,5 +442,57 @@ function getSurroundingChunks(pos: vec3): [number, number][] {
         Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
         Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
     ]);
+    return result;
+}
+
+function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
+    const surrounding_chunks = getSurroundingChunks(pos);
+    let best_floor = height_map.getFloorAndCeiling(pos[0], pos[2]).floor;
+    let best_normal = height_map.getNormalAtFloor(pos[0], pos[2]);
+    const floor_pos = vec3.fromValues(pos[0], best_floor, pos[2]);
+    for (const chunk of surrounding_chunks) {
+        const x = chunk[0];
+        const z = chunk[1];
+        const entities = chunk_entities.getChunkEntities(x, z);
+
+        for (const e of entities) {
+            if (e.type !== "rock") continue;
+            //check intersection with pos at floor level;
+            const dist = vec3.dist(floor_pos, e.position);
+            if (!e.radius) throw "missing radius on rock";
+
+            const r = e.radius * 1.01; //to prevent camera going inside
+            if (dist < r) {
+                //shoot vector in direction from rock to pos with length radius
+                let dir = vec3.create();
+
+                //fix for objects already inside sphere
+                let pos_above = vec3.clone(floor_pos);
+                pos_above[1] += r - dist;
+
+                vec3.sub(dir, pos_above, e.position);
+                vec3.normalize(dir, dir);
+                let normal = vec3.clone(dir);
+                vec3.scale(dir, dir, r);
+
+                const floor = e.position[1] + dir[1];
+                if (floor > best_floor) {
+                    vec3.copy(best_normal, normal);
+                    best_floor = floor;
+                }
+            }
+        }
+    }
+    return { floor: best_floor, normal: best_normal };
+}
+
+function lineSphereIntersection(point: vec3, direction: vec3, center: vec3, radius: number) {
+    const result = vec3.create();
+    // Solve for t in the equation of the line: x = x0 + t(x1 - x0)
+    const t = vec3.dot(vec3.sub(result, point, center), direction) / vec3.dot(direction, direction);
+
+    // Substitute the value of t back into the equation of the line to find the intersection point
+    vec3.scale(result, direction, t);
+    vec3.add(result, result, point);
     return result;
 }

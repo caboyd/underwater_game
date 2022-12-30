@@ -34,7 +34,7 @@ export class Rocks {
 
         mat4.translate(mat, mat, pos);
         mat4.scale(mat, mat, [radius, radius, radius]);
-        chunked_entities.insert(x, z, { type: "rock", position: pos, instance: mat });
+        chunked_entities.insert(x, z, { type: "rock", position: pos, instance: mat, radius: radius });
 
         for (let i = 0; i < count - 1; i++) {
             for (let j = 0; j < 25000; j++) {
@@ -50,19 +50,19 @@ export class Rocks {
                 mat4.rotateX(mat, mat, Math.PI * Math.random());
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
 
-                chunked_entities.insert(x, z, { type: "rock", position: pos, instance: mat });
+                chunked_entities.insert(x, z, { type: "rock", position: pos, instance: mat, radius: radius });
                 break;
             }
         }
         return c;
     }
 
-    public updateVisibleInstances(active_chunks: Uint16Array, chunked_entities: ChunkEntities): void {
+    public updateVisibleInstances(active_chunks: Uint16Array, chunk_entities: ChunkEntities): void {
         this.instanced_mesh.instance_matrix.length = 0;
         for (let i = 0; i < active_chunks.length; i += 2) {
             const x = active_chunks[i];
             const z = active_chunks[i + 1];
-            const entities = chunked_entities.getChunkEntities(x, z);
+            const entities = chunk_entities.getChunkEntities(x, z);
             for (const e of entities) {
                 if (e.type !== "rock") continue;
                 this.instanced_mesh.addInstance(e.instance);
