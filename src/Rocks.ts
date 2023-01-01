@@ -2,26 +2,17 @@ import { mat4, vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
 import { HeightMap } from "src/heightmap/HeightMap";
 import { ChunkEntities } from "./ChunkEntities";
+import { InstancedChunkEntity } from "./InstancedChunkEntity";
 
-export class Rocks {
-    instanced_mesh!: IWO.InstancedMesh;
-
-    private constructor() {}
-
-    public static async Create(
-        gl: WebGL2RenderingContext,
+export class Rocks extends InstancedChunkEntity {
+    constructor(
         height_map: HeightMap,
         chunked_entities: ChunkEntities,
+        id: string,
+        instanced_mesh: IWO.InstancedMesh,
         count = 2000
-    ): Promise<Rocks> {
-        const c = new Rocks();
-
-        const data = await IWO.ObjLoader.promise("rockB.obj", "iwo-assets/underwater_game/obj/rocks/", {
-            flip_image_y: true,
-        });
-        const m = new IWO.Mesh(gl, data.objects[0].geometry);
-        c.instanced_mesh = new IWO.InstancedMesh(m, data.materials);
-        //  mat4.rotateY(c.instanced_mesh.model_matrix, c.instanced_mesh.model_matrix, Math.PI / 2);
+    ) {
+        super(id, instanced_mesh);
 
         const [w, h] = [height_map.getWidth(), height_map.getHeight()];
 
@@ -34,7 +25,7 @@ export class Rocks {
 
         mat4.translate(mat, mat, pos);
         mat4.scale(mat, mat, [radius, radius, radius]);
-        chunked_entities.insert(x, z, { type: "rock", position: pos, instance: mat, radius: radius });
+        chunked_entities.insert(x, z, { type: this.id, position: pos, instance: mat, radius: radius });
 
         for (let i = 0; i < count - 1; i++) {
             for (let j = 0; j < 25000; j++) {
@@ -50,22 +41,8 @@ export class Rocks {
                 mat4.rotateX(mat, mat, Math.PI * Math.random());
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
 
-                chunked_entities.insert(x, z, { type: "rock", position: pos, instance: mat, radius: radius });
+                chunked_entities.insert(x, z, { type: this.id, position: pos, instance: mat, radius: radius });
                 break;
-            }
-        }
-        return c;
-    }
-
-    public updateVisibleInstances(active_chunks: Uint16Array, chunk_entities: ChunkEntities): void {
-        this.instanced_mesh.instance_matrix.length = 0;
-        for (let i = 0; i < active_chunks.length; i += 2) {
-            const x = active_chunks[i];
-            const z = active_chunks[i + 1];
-            const entities = chunk_entities.getChunkEntities(x, z);
-            for (const e of entities) {
-                if (e.type !== "rock") continue;
-                this.instanced_mesh.addInstance(e.instance);
             }
         }
     }

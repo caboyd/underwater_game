@@ -3,7 +3,7 @@ import { HeightMapOptions } from "src/heightmap/HeightMap";
 
 export type Entity = {
     id: number;
-    type: "chest" | "rock";
+    type: "chest" | "rock" | string;
     position: vec3;
     instance: mat4;
     radius?: number;

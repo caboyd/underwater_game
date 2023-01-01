@@ -2,15 +2,15 @@ import { glMatrix, mat4, vec3 } from "gl-matrix";
 import * as ImGui from "imgui-js/imgui";
 import * as ImGui_Impl from "imgui-js/imgui_impl";
 import * as IWO from "iwo-renderer";
+import { ChunkEntities } from "src/ChunkEntities";
 import { HeightMapOptions } from "src/heightmap/HeightMap";
 import { HeightMapChunkInstanced } from "src/heightmap/HeightMapChunkInstanced";
 import { HeightMapMaterial } from "src/heightmap/HeightMapMaterial";
 import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
 import { NoiseTexture } from "src/noise/NoiseTexture";
+import { Rocks } from "src/Rocks";
 import { Chests } from "./chests";
 import { HeightMap } from "./heightmap/HeightMap";
-import { ChunkEntities } from "src/ChunkEntities";
-import { Rocks } from "src/Rocks";
 
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
@@ -145,12 +145,19 @@ async function initScene() {
 
     chunk_entities = new ChunkEntities(Height_Opt);
     chests = await Chests.Create(gl, height_map, chunk_entities);
-    rocks = await Rocks.Create(gl, height_map, chunk_entities);
+
+    const data = await IWO.ObjLoader.promise("rockK.obj", "iwo-assets/underwater_game/obj/rocks/", {
+        flip_image_y: true,
+    });
+    const m = new IWO.Mesh(gl, data.objects[0].geometry);
+    const im = new IWO.InstancedMesh(m, data.materials);
+
+    rocks = new Rocks(height_map, chunk_entities, "rock_k", im, 2000);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
     await initDoodadObj("starfish_low.obj", obj_url, "starfish", [0.0015, 0.0015, 0.0015]);
-    await initDoodadObj("seashell_low.obj", obj_url, "seashell", [0.02, 0.02, 0.02]);
+    await initDoodadObj("seashell_low.obj", obj_url, "seashell", [0.02, 0.02, 0.02], [0, 0.05, 0]);
     // await initDoodad("plant3.obj", doodad_url, "plant3", [2, 2, 2]);
     // await initDoodad("plant6.obj", doodad_url, "plant6", [0.6, 0.6, 0.6]);
     // await initDoodad("grass.obj", doodad_url, "grass", [0.25, 0.25, 0.25]);
@@ -203,11 +210,13 @@ async function initScene() {
         file_name: string,
         base_url: string,
         object_name: string,
-        scale: vec3 = vec3.fromValues(1, 1, 1)
+        scale: vec3 = vec3.fromValues(1, 1, 1),
+        offset: vec3 = vec3.create()
     ) {
         const obj_data = await IWO.ObjLoader.promise(file_name, base_url, { flip_image_y: true });
         const mesh = new IWO.Mesh(gl, obj_data.objects[0].geometry);
         const instance = new IWO.InstancedMesh(mesh, obj_data.materials!);
+        mat4.translate(instance.model_matrix, instance.model_matrix, offset);
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
         doodad_map.set(object_name, instance);
     }
@@ -258,7 +267,7 @@ function update() {
     console.log(floor);
     if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
-    if (camera.position[1] - floor < 0.5) camera.position[1] = floor + 0.5;
+    if (camera.position[1] - floor < 0.5) camera.position[1] = Math.min(floor + 0.5, camera.position[1] + 0.5);
 
     //check if view changed to determin what needs updating
     const forward = camera.getForward();
@@ -456,28 +465,22 @@ function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
         const entities = chunk_entities.getChunkEntities(x, z);
 
         for (const e of entities) {
-            if (e.type !== "rock") continue;
+            if (!e.type.includes("rock")) continue;
             //check intersection with pos at floor level;
             const dist = vec3.dist(floor_pos, e.position);
             if (!e.radius) throw "missing radius on rock";
 
-            const r = e.radius * 1.01; //to prevent camera going inside
+            const r = e.radius + 0.05; //to prevent objects/camera going inside
             if (dist < r) {
                 //shoot vector in direction from rock to pos with length radius
                 let dir = vec3.create();
 
-                //fix for objects already inside sphere
-                let pos_above = vec3.clone(floor_pos);
-                pos_above[1] += r - dist;
+                vec3.sub(dir, floor_pos, e.position);
+                dir[1] = Math.sqrt(r * r - dir[0] * dir[0] - dir[2] * dir[2]);
+                let floor = dir[1] + e.position[1];
 
-                vec3.sub(dir, pos_above, e.position);
-                vec3.normalize(dir, dir);
-                let normal = vec3.clone(dir);
-                vec3.scale(dir, dir, r);
-
-                const floor = e.position[1] + dir[1];
                 if (floor > best_floor) {
-                    vec3.copy(best_normal, normal);
+                    vec3.copy(best_normal, vec3.normalize(dir, dir));
                     best_floor = floor;
                 }
             }
