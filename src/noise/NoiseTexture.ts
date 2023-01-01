@@ -95,7 +95,7 @@ export class NoiseTexture implements HeightMapOptions {
                     x < x_index + cell_radius &&
                     x > x_index - cell_radius
                 ) {
-                    chunk_coords.push(x, z);
+                    chunk_coords.push([x, z]);
                     if (this.drawTexture(x, z)) did_draw = true;
                     continue;
                 }
@@ -119,14 +119,19 @@ export class NoiseTexture implements HeightMapOptions {
                 const pos_angle_1 = vec2.angle(temp_pos_to_chunk_center, temp_fov_dir1);
                 const pos_angle_2 = vec2.angle(temp_pos_to_chunk_center, temp_fov_dir2);
                 if (pos_angle_1 < angle && pos_angle_2 < angle) {
-                    chunk_coords.push(x, z);
+                    chunk_coords.push([x, z]);
                     if (this.drawTexture(x, z)) did_draw = true;
                 }
             }
         }
 
         if (did_draw) this.updateTexture2D(gl);
-        return new Uint16Array(chunk_coords);
+        //sort for later comparison
+        chunk_coords.sort((a, b) => {
+            return (a[0] - b[0]) * this.x_chunks + (a[1] - b[1]);
+        });
+
+        return new Uint16Array(chunk_coords.flat(1));
     }
 
     public drawTexture(x: number, z: number): boolean {

@@ -1,6 +1,6 @@
 import { mat4, vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
-import { HeightMap } from "src/heightmap/HeightMap";
+import { HeightMap } from "../heightmap/HeightMap";
 import { ChunkEntities } from "./ChunkEntities";
 import { InstancedChunkEntity } from "./InstancedChunkEntity";
 

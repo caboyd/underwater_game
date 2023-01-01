@@ -13,6 +13,7 @@ export class Chests {
         gl: WebGL2RenderingContext,
         height_map: HeightMap,
         chunked_entities: ChunkEntities,
+        floor_func: (pos: vec3) => { floor: number; normal: vec3 },
         num_chests = 50
     ): Promise<Chests> {
         const c = new Chests();
@@ -43,12 +44,14 @@ export class Chests {
                 const z = Math.random() * h;
                 const y = height_map.validFloorPosition(x, z, 1);
                 if (y === false) continue;
+                const { floor: floor, normal: normal } = floor_func([x, y, z]);
                 mat4.identity(mat);
                 //make treasure chest normal match floor
-                const pos = vec3.fromValues(x, y, z);
-                const center = vec3.add(vec3.create(), pos, height_map.getNormalAtFloor(x, z));
+                const pos = vec3.fromValues(x, floor, z);
+                const center = vec3.add(vec3.create(), pos, normal);
                 mat4.targetTo(mat, pos, center, [0, 0, 1]);
-                mat4.rotateX(mat, mat, Math.PI / 2);
+                if (y === floor) mat4.rotateX(mat, mat, Math.PI / 2);
+                else mat4.rotateX(mat, mat, -Math.PI / 2);
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
                 chunked_entities.insert(x, z, { type: "chest", position: pos, instance: mat4.clone(mat) });
                 break;

@@ -2,14 +2,15 @@ import { glMatrix, mat4, vec3 } from "gl-matrix";
 import * as ImGui from "imgui-js/imgui";
 import * as ImGui_Impl from "imgui-js/imgui_impl";
 import * as IWO from "iwo-renderer";
-import { ChunkEntities } from "src/ChunkEntities";
+import { ChunkEntities } from "src/Entities/ChunkEntities";
+import { Doodads } from "src/Entities/Doodads";
 import { HeightMapOptions } from "src/heightmap/HeightMap";
 import { HeightMapChunkInstanced } from "src/heightmap/HeightMapChunkInstanced";
 import { HeightMapMaterial } from "src/heightmap/HeightMapMaterial";
 import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
 import { NoiseTexture } from "src/noise/NoiseTexture";
-import { Rocks } from "src/Rocks";
-import { Chests } from "./chests";
+import { Rocks } from "src/Entities/Rocks";
+import { Chests } from "./Entities/Chests";
 import { HeightMap } from "./heightmap/HeightMap";
 
 let gl: WebGL2RenderingContext;
@@ -36,7 +37,6 @@ const PLAYER_SIZE = 0.5;
 
 let renderer: IWO.Renderer;
 let fps_control: IWO.FPSControl;
-let doodad_map: Map<string, IWO.InstancedMesh> = new Map();
 
 let height_map: HeightMap;
 let noise_tex: NoiseTexture;
@@ -44,7 +44,8 @@ let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
-let rocks: Rocks;
+let rocks_array: Rocks[] = [];
+let doodads_array: Doodads[] = [];
 let chunk_entities: ChunkEntities;
 
 let light_toggle: boolean = true;
@@ -144,72 +145,58 @@ async function initScene() {
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
     chunk_entities = new ChunkEntities(Height_Opt);
-    chests = await Chests.Create(gl, height_map, chunk_entities);
 
-    const data = await IWO.ObjLoader.promise("rockK.obj", "iwo-assets/underwater_game/obj/rocks/", {
-        flip_image_y: true,
-    });
-    const m = new IWO.Mesh(gl, data.objects[0].geometry);
-    const im = new IWO.InstancedMesh(m, data.materials);
+    const rocks = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
+    const promises = [];
+    for (const letter of rocks) {
+        promises.push(
+            initRocks(
+                `rock${letter}.obj`,
+                "iwo-assets/underwater_game/obj/rocks/",
+                `rock_${letter}`,
+                2000 / rocks.length
+            )
+        );
+    }
+    await Promise.all(promises);
 
-    rocks = new Rocks(height_map, chunk_entities, "rock_k", im, 2000);
+    //NOTE: must do after rocks
+    chests = await Chests.Create(gl, height_map, chunk_entities, getFloorNormalWithRocks);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
-    await initDoodadObj("starfish_low.obj", obj_url, "starfish", [0.0015, 0.0015, 0.0015]);
-    await initDoodadObj("seashell_low.obj", obj_url, "seashell", [0.02, 0.02, 0.02], [0, 0.05, 0]);
-    // await initDoodad("plant3.obj", doodad_url, "plant3", [2, 2, 2]);
-    // await initDoodad("plant6.obj", doodad_url, "plant6", [0.6, 0.6, 0.6]);
-    // await initDoodad("grass.obj", doodad_url, "grass", [0.25, 0.25, 0.25]);
-    // await initDoodad("pale_fan.obj", doodad_url, "pale_fan", [0.25, 0.25, 0.25]);
-    // await initDoodad("dropwort.obj", doodad_url, "dropwort_single", [0.25, 0.25, 0.25]);
-    await initDoodadBillboard("five_plants.png", image_url, "five_plants", [1, 1, 1]);
-    await initDoodadBillboard("green_algae2.png", image_url, "green_algae2", [1, 1, 1]);
-    await initDoodadBillboard("kelp.png", image_url, "kelp", [1, 1, 1]);
-    await initDoodadBillboard("seaweed_tall.png", image_url, "seaweed_tall", [1, 1, 1]);
-    await initDoodadBillboard("seaweed_wide.png", image_url, "seaweed_wide", [1, 1, 1]);
-    await initDoodadBillboard("together.png", image_url, "together", [1, 1, 1]);
+    const doodad_count_3d = 200;
+    const doodad_count_billboard = 15000 / 6;
 
-    //generate random doodads
-    const mat = mat4.create();
-    for (let i = 0; i < 15000; i++) {
-        let key = getRandomKey(doodad_map);
-        const instance = doodad_map.get(key)!;
+    await initDoodadObj("starfish_low.obj", obj_url, "starfish_3d", doodad_count_3d, [0.0015, 0.0015, 0.0015]);
+    await initDoodadObj("seashell_low.obj", obj_url, "seashell_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.05, 0]);
+    await initDoodadObj("urchin.obj", obj_url, "urchin_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.05, 0]);
+    // await initDoodadObj("plant3.obj", obj_url, "plant3", doodad_count_3d, [2, 2, 2]);
+    // await initDoodadObj("plant6.obj", obj_url, "plant6", doodad_count_3d, [0.6, 0.6, 0.6]);
+    // await initDoodadObj("grass.obj", obj_url, "grass", doodad_count_3d, [0.25, 0.25, 0.25]);
+    // await initDoodadObj("pale_fan.obj", obj_url, "pale_fan", doodad_count_3d, [0.25, 0.25, 0.25]);
+    // await initDoodadObj("dropwort.obj", obj_url, "dropwort_single", doodad_count_3d, [0.25, 0.25, 0.25]);
+    await initDoodadBillboard("five_plants.png", image_url, "five_plants", doodad_count_billboard, [1, 1, 1]);
+    await initDoodadBillboard("green_algae2.png", image_url, "green_algae2", doodad_count_billboard, [1, 1, 1]);
+    await initDoodadBillboard("kelp.png", image_url, "kelp", doodad_count_billboard, [1, 1, 1]);
+    await initDoodadBillboard("seaweed_tall.png", image_url, "seaweed_tall", doodad_count_billboard, [1, 1, 1]);
+    await initDoodadBillboard("seaweed_wide.png", image_url, "seaweed_wide", doodad_count_billboard, [1, 1, 1]);
+    await initDoodadBillboard("together.png", image_url, "together", doodad_count_billboard, [1, 1, 1]);
 
-        //place randomly in area 0xz to +500xz
-        for (let j = 0; j < 25000; j++) {
-            const x = Math.random() * 500;
-            const z = Math.random() * 500;
-            let y = height_map.validFloorPosition(x, z, 1);
-            if (y === false) continue;
-            let { floor: floor, normal: normal } = getFloorNormalWithRocks([x, y, z]);
-
-            mat4.identity(mat);
-            if (key == "starfish" || key == "seashell") {
-                const center = vec3.add(vec3.create(), [x, floor, z], normal);
-                mat4.targetTo(mat, [x, floor, z], center, [0, 0, 1]);
-                mat4.rotateX(mat, mat, Math.PI / 2);
-            } else {
-                mat4.fromTranslation(mat, [x, floor, z]);
-            }
-            instance.addInstance(mat);
-            break;
-        }
-    }
-
-    function getRandomKey(collection: Map<string, unknown>) {
-        let keys = Array.from(collection.keys());
-        let r = Math.floor(Math.random() * keys.length);
-        //to lower probability of 3d doodads
-        if (r == 0 || r == 1) r = Math.floor(Math.random() * keys.length);
-        if (r == 0 || r == 1) r = Math.floor(Math.random() * keys.length);
-        return keys[r];
+    async function initRocks(file_name: string, base_url: string, object_name: string, count: number) {
+        const data = await IWO.ObjLoader.promise(file_name, base_url, {
+            flip_image_y: true,
+        });
+        const m = new IWO.Mesh(gl, data.objects[0].geometry);
+        const im = new IWO.InstancedMesh(m, data.materials);
+        rocks_array.push(new Rocks(height_map, chunk_entities, object_name, im, count));
     }
 
     async function initDoodadObj(
         file_name: string,
         base_url: string,
         object_name: string,
+        count: number,
         scale: vec3 = vec3.fromValues(1, 1, 1),
         offset: vec3 = vec3.create()
     ) {
@@ -218,16 +205,19 @@ async function initScene() {
         const instance = new IWO.InstancedMesh(mesh, obj_data.materials!);
         mat4.translate(instance.model_matrix, instance.model_matrix, offset);
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
-        doodad_map.set(object_name, instance);
+        doodads_array.push(
+            new Doodads(height_map, chunk_entities, getFloorNormalWithRocks, object_name, instance, false, count)
+        );
     }
 
     async function initDoodadBillboard(
         file_name: string,
         base_url: string,
         object_name: string,
+        count: number,
         scale: vec3 = vec3.fromValues(1, 1, 1)
     ) {
-        const tex = await IWO.TextureLoader.load(gl, file_name, base_url, {
+        const tex = IWO.TextureLoader.load(gl, file_name, base_url, {
             flip: true,
             format: gl.RGBA,
             internal_format: gl.SRGB8_ALPHA8,
@@ -238,7 +228,9 @@ async function initScene() {
         const instance = new IWO.InstancedMesh(mesh, mat);
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
         mat4.translate(instance.model_matrix, instance.model_matrix, [0, 0.5, 0]);
-        doodad_map.set(object_name, instance);
+        doodads_array.push(
+            new Doodads(height_map, chunk_entities, getFloorNormalWithRocks, object_name, instance, true, count)
+        );
     }
 }
 
@@ -246,6 +238,7 @@ let delta = 0;
 let last_now = Date.now();
 let last_camera_forward = vec3.create();
 let last_camera_pos = vec3.create();
+let last_chunks: Uint16Array = new Uint16Array();
 
 function update() {
     const new_now = Date.now();
@@ -264,7 +257,7 @@ function update() {
     //check if valid pos
     let ceil = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]).ceil;
     let floor = getFloorNormalWithRocks(camera.position).floor;
-    console.log(floor);
+
     if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = Math.min(floor + 0.5, camera.position[1] + 0.5);
@@ -290,14 +283,18 @@ function update() {
         const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
 
         const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
+        if (!arraysEqual(chunk_coords, last_chunks)) {
+            ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+            ceiling_chunk.mesh.instances = chunk_coords.length / 2;
+            floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+            floor_chunk.mesh.instances = chunk_coords.length / 2;
 
-        ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-        ceiling_chunk.mesh.instances = chunk_coords.length / 2;
-        floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-        floor_chunk.mesh.instances = chunk_coords.length / 2;
+            chests.updateVisibleInstances(chunk_coords, chunk_entities);
+            for (const rocks of rocks_array) rocks.updateVisibleInstances(chunk_coords, chunk_entities);
+            for (const doodads of doodads_array) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
 
-        chests.updateVisibleInstances(chunk_coords, chunk_entities);
-        rocks.updateVisibleInstances(chunk_coords, chunk_entities);
+            last_chunks = new Uint16Array(chunk_coords);
+        }
     }
 
     //find the 4 chunks surrounding player
@@ -335,13 +332,13 @@ function drawScene() {
     floor_chunk.render(renderer, v, p);
 
     chests.instanced_mesh.render(renderer, v, p);
-    rocks.instanced_mesh.render(renderer, v, p);
+    for (const rocks of rocks_array) rocks.instanced_mesh.render(renderer, v, p);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA, gl.DST_ALPHA);
-    for (const [key, doodad] of doodad_map) {
-        doodad.render(renderer, v, p);
+    for (const doodads of doodads_array) {
+        doodads.instanced_mesh.render(renderer, v, p);
     }
 
     //grid.render(renderer, v, p);
@@ -459,10 +456,9 @@ function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
     let best_floor = height_map.getFloorAndCeiling(pos[0], pos[2]).floor;
     let best_normal = height_map.getNormalAtFloor(pos[0], pos[2]);
     const floor_pos = vec3.fromValues(pos[0], best_floor, pos[2]);
+    const dir = vec3.create();
     for (const chunk of surrounding_chunks) {
-        const x = chunk[0];
-        const z = chunk[1];
-        const entities = chunk_entities.getChunkEntities(x, z);
+        const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
 
         for (const e of entities) {
             if (!e.type.includes("rock")) continue;
@@ -472,8 +468,7 @@ function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
 
             const r = e.radius + 0.05; //to prevent objects/camera going inside
             if (dist < r) {
-                //shoot vector in direction from rock to pos with length radius
-                let dir = vec3.create();
+                //solve positive y in equation for sphere at floor_pos inside sphere
 
                 vec3.sub(dir, floor_pos, e.position);
                 dir[1] = Math.sqrt(r * r - dir[0] * dir[0] - dir[2] * dir[2]);
@@ -489,13 +484,13 @@ function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
     return { floor: best_floor, normal: best_normal };
 }
 
-function lineSphereIntersection(point: vec3, direction: vec3, center: vec3, radius: number) {
-    const result = vec3.create();
-    // Solve for t in the equation of the line: x = x0 + t(x1 - x0)
-    const t = vec3.dot(vec3.sub(result, point, center), direction) / vec3.dot(direction, direction);
+function arraysEqual(a: IWO.TypedArray | unknown[], b: IWO.TypedArray | unknown[]) {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (a.length !== b.length) return false;
 
-    // Substitute the value of t back into the equation of the line to find the intersection point
-    vec3.scale(result, direction, t);
-    vec3.add(result, result, point);
-    return result;
+    for (var i = 0; i < a.length; ++i) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
 }

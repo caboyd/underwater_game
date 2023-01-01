@@ -20,5 +20,5 @@
     },
     "typedef": [true, "call-signature", "property-declaration"],
     "exclude": ["dist", "node_modules"],
-    "include": ["src/*", "vite-env.d.ts"]
+    "include": ["src/*", "vite-env.d.ts", "src/Entities/Chests.ts"]
 }
