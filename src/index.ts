@@ -166,7 +166,7 @@ async function initScene() {
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
     const doodad_count_3d = 200;
-    const doodad_count_billboard = 15000 / 6;
+    const doodad_count_billboard = 25000 / 6;
 
     await initDoodadObj("starfish_low.obj", obj_url, "starfish_3d", doodad_count_3d, [0.0015, 0.0015, 0.0015]);
     await initDoodadObj("seashell_low.obj", obj_url, "seashell_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.05, 0]);
