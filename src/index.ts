@@ -291,7 +291,9 @@ function update() {
 
             chests.updateVisibleInstances(chunk_coords, chunk_entities);
             for (const rocks of rocks_array) rocks.updateVisibleInstances(chunk_coords, chunk_entities);
-            for (const doodads of doodads_array) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
+            for (const doodads of doodads_array) {
+                if (doodads.id.includes("3d")) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
+            }
 
             last_chunks = new Uint16Array(chunk_coords);
         }
@@ -347,6 +349,8 @@ function drawScene() {
     renderer.resetSaveBindings();
 }
 
+let backup_gl_state: ImGui_Impl.GLBackupState | undefined = undefined;
+
 function drawUI(): void {
     //imgui render
     ImGui_Impl.NewFrame(0);
@@ -386,7 +390,8 @@ function drawUI(): void {
     ImGui.EndFrame();
     ImGui.Render();
 
-    ImGui_Impl.RenderDrawData(ImGui.GetDrawData());
+    if (backup_gl_state === undefined) backup_gl_state = ImGui_Impl.GetBackupGLState();
+    ImGui_Impl.RenderDrawData(ImGui.GetDrawData(), backup_gl_state);
 }
 
 function setupLights() {

@@ -486,7 +486,80 @@ export function NewFrame(time: number): void {
     }
 }
 
-export function RenderDrawData(draw_data: ImGui.DrawData | null = ImGui.GetDrawData()): void {
+export type GLBackupState = {
+    last_active_texture: GLenum | null;
+    last_program: WebGLProgram | null;
+    last_texture: WebGLTexture | null;
+    last_array_buffer: WebGLBuffer | null;
+    last_element_array_buffer: WebGLBuffer | null;
+    last_vertex_array_object: WebGLVertexArrayObject | WebGLVertexArrayObjectOES | null ;
+    // GLint last_polygon_mode[2]; glGetIntegerv(GL_POLYGON_MODE, last_polygon_mode);
+    last_viewport: Int32Array | null;
+    last_scissor_box: Int32Array | null;
+    last_blend_src_rgb: GLenum | null;
+    last_blend_dst_rgb: GLenum | null;
+    last_blend_src_alpha: GLenum | null;
+    last_blend_dst_alpha: GLenum | null;
+    last_blend_equation_rgb: GLenum | null;
+    last_blend_equation_alpha: GLenum | null;
+    last_enable_blend: GLboolean | null;
+    last_enable_cull_face: GLboolean | null;
+    last_enable_depth_test: GLboolean | null;
+    last_enable_scissor_test: GLboolean | null;
+}
+
+export function GetBackupGLState(): GLBackupState{
+    const gl2: WebGL2RenderingContext | null = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext && gl || null;
+    const gl_vao: OES_vertex_array_object | null = gl && gl.getExtension("OES_vertex_array_object") || null;
+
+    // Backup GL state
+    const last_gl_state = {
+        last_active_texture: gl && gl.getParameter(gl.ACTIVE_TEXTURE) || null,
+        last_program: gl && gl.getParameter(gl.CURRENT_PROGRAM) || null,
+        last_texture: gl && gl.getParameter(gl.TEXTURE_BINDING_2D) || null,
+        last_array_buffer: gl && gl.getParameter(gl.ARRAY_BUFFER_BINDING) || null,
+        last_element_array_buffer: gl && gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING) || null,
+        last_vertex_array_object: gl2 && gl2.getParameter(gl2.VERTEX_ARRAY_BINDING) || gl && gl_vao && gl.getParameter(gl_vao.VERTEX_ARRAY_BINDING_OES) || null,
+        // GLint(GL_POLYGON_MODE, last_polygon_mode);
+        last_viewport: gl && gl.getParameter(gl.VIEWPORT) || null,
+        last_scissor_box: gl && gl.getParameter(gl.SCISSOR_BOX) || null,
+        last_blend_src_rgb: gl && gl.getParameter(gl.BLEND_SRC_RGB) || null,
+        last_blend_dst_rgb: gl && gl.getParameter(gl.BLEND_DST_RGB) || null,
+        last_blend_src_alpha: gl && gl.getParameter(gl.BLEND_SRC_ALPHA) || null,
+        last_blend_dst_alpha: gl && gl.getParameter(gl.BLEND_DST_ALPHA) || null,
+        last_blend_equation_rgb: gl && gl.getParameter(gl.BLEND_EQUATION_RGB) || null,
+        last_blend_equation_alpha: gl && gl.getParameter(gl.BLEND_EQUATION_ALPHA) || null,
+        last_enable_blend: gl && gl.getParameter(gl.BLEND) || null,
+        last_enable_cull_face: gl && gl.getParameter(gl.CULL_FACE) || null,
+        last_enable_depth_test: gl && gl.getParameter(gl.DEPTH_TEST) || null,
+        last_enable_scissor_test: gl && gl.getParameter(gl.SCISSOR_TEST) || null,
+    }
+    return last_gl_state;
+}
+
+export function RestoreBackupGLState(backup_state: GLBackupState): void {
+    const gl2: WebGL2RenderingContext | null = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext && gl || null;
+    const gl_vao: OES_vertex_array_object | null = gl && gl.getExtension("OES_vertex_array_object") || null;
+    const s = backup_state;
+    // Restore modified GL state
+    gl && (s.last_program !== null) && gl.useProgram(s.last_program);
+    gl && (s.last_texture !== null) && gl.bindTexture(gl.TEXTURE_2D, s.last_texture);
+    gl && (s.last_active_texture !== null) && gl.activeTexture(s.last_active_texture);
+    gl2 && gl2.bindVertexArray(s.last_vertex_array_object) || gl_vao && gl_vao.bindVertexArrayOES(s.last_vertex_array_object);
+    gl && (s.last_array_buffer !== null) && gl.bindBuffer(gl.ARRAY_BUFFER, s.last_array_buffer);
+    gl && (s.last_element_array_buffer !== null) && gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, s.last_element_array_buffer);
+    gl && (s.last_blend_equation_rgb !== null && s.last_blend_equation_alpha !== null) && gl.blendEquationSeparate(s.last_blend_equation_rgb, s.last_blend_equation_alpha);
+    gl && (s.last_blend_src_rgb !== null && s.last_blend_src_alpha !== null && s.last_blend_dst_rgb !== null && s.last_blend_dst_alpha !== null) && gl.blendFuncSeparate(s.last_blend_src_rgb, s.last_blend_src_alpha, s.last_blend_dst_rgb, s.last_blend_dst_alpha);
+    gl && (s.last_enable_blend ? gl.enable(gl.BLEND) : gl.disable(gl.BLEND));
+    gl && (s.last_enable_cull_face ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE));
+    gl && (s.last_enable_depth_test ? gl.enable(gl.DEPTH_TEST) : gl.disable(gl.DEPTH_TEST));
+    gl && (s.last_enable_scissor_test ? gl.enable(gl.SCISSOR_TEST) : gl.disable(gl.SCISSOR_TEST));
+    // glPolygonMode(GL_FRONT_AND_BACK, (GLenum)last_polygon_mode[0]);
+    gl && (s.last_viewport !== null) && gl.viewport(s.last_viewport[0], s.last_viewport[1], s.last_viewport[2], s.last_viewport[3]);
+    gl && (s.last_scissor_box !== null) && gl.scissor(s.last_scissor_box[0], s.last_scissor_box[1], s.last_scissor_box[2], s.last_scissor_box[3]);
+}
+
+export function RenderDrawData(draw_data: ImGui.DrawData | null = ImGui.GetDrawData(), backup_state = GetBackupGLState()): void {
     const io = ImGui.GetIO();
     if (draw_data === null) { throw new Error(); }
 
@@ -502,27 +575,6 @@ export function RenderDrawData(draw_data: ImGui.DrawData | null = ImGui.GetDrawD
 
     const gl2: WebGL2RenderingContext | null = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext && gl || null;
     const gl_vao: OES_vertex_array_object | null = gl && gl.getExtension("OES_vertex_array_object") || null;
-
-    // Backup GL state
-    const last_active_texture: GLenum | null = gl && gl.getParameter(gl.ACTIVE_TEXTURE) || null;
-    const last_program: WebGLProgram | null = gl && gl.getParameter(gl.CURRENT_PROGRAM) || null;
-    const last_texture: WebGLTexture | null = gl && gl.getParameter(gl.TEXTURE_BINDING_2D) || null;
-    const last_array_buffer: WebGLBuffer | null = gl && gl.getParameter(gl.ARRAY_BUFFER_BINDING) || null;
-    const last_element_array_buffer: WebGLBuffer | null = gl && gl.getParameter(gl.ELEMENT_ARRAY_BUFFER_BINDING) || null;
-    const last_vertex_array_object: WebGLVertexArrayObject | WebGLVertexArrayObjectOES | null = gl2 && gl2.getParameter(gl2.VERTEX_ARRAY_BINDING) || gl && gl_vao && gl.getParameter(gl_vao.VERTEX_ARRAY_BINDING_OES) || null;
-    // GLint last_polygon_mode[2]; glGetIntegerv(GL_POLYGON_MODE, last_polygon_mode);
-    const last_viewport: Int32Array | null = gl && gl.getParameter(gl.VIEWPORT) || null;
-    const last_scissor_box: Int32Array | null = gl && gl.getParameter(gl.SCISSOR_BOX) || null;
-    const last_blend_src_rgb: GLenum | null = gl && gl.getParameter(gl.BLEND_SRC_RGB) || null;
-    const last_blend_dst_rgb: GLenum | null = gl && gl.getParameter(gl.BLEND_DST_RGB) || null;
-    const last_blend_src_alpha: GLenum | null = gl && gl.getParameter(gl.BLEND_SRC_ALPHA) || null;
-    const last_blend_dst_alpha: GLenum | null = gl && gl.getParameter(gl.BLEND_DST_ALPHA) || null;
-    const last_blend_equation_rgb: GLenum | null = gl && gl.getParameter(gl.BLEND_EQUATION_RGB) || null;
-    const last_blend_equation_alpha: GLenum | null = gl && gl.getParameter(gl.BLEND_EQUATION_ALPHA) || null;
-    const last_enable_blend: GLboolean | null = gl && gl.getParameter(gl.BLEND) || null;
-    const last_enable_cull_face: GLboolean | null = gl && gl.getParameter(gl.CULL_FACE) || null;
-    const last_enable_depth_test: GLboolean | null = gl && gl.getParameter(gl.DEPTH_TEST) || null;
-    const last_enable_scissor_test: GLboolean | null = gl && gl.getParameter(gl.SCISSOR_TEST) || null;
 
     // Setup desired GL state
     // Recreate the VAO every time (this is to easily allow multiple GL contexts to be rendered to. VAO are not shared among GL contexts)
@@ -689,22 +741,7 @@ export function RenderDrawData(draw_data: ImGui.DrawData | null = ImGui.GetDrawD
     // Destroy the temporary VAO
     gl2 && gl2.deleteVertexArray(vertex_array_object) || gl_vao && gl_vao.deleteVertexArrayOES(vertex_array_object);
 
-    // Restore modified GL state
-    gl && (last_program !== null) && gl.useProgram(last_program);
-    gl && (last_texture !== null) && gl.bindTexture(gl.TEXTURE_2D, last_texture);
-    gl && (last_active_texture !== null) && gl.activeTexture(last_active_texture);
-    gl2 && gl2.bindVertexArray(last_vertex_array_object) || gl_vao && gl_vao.bindVertexArrayOES(last_vertex_array_object);
-    gl && (last_array_buffer !== null) && gl.bindBuffer(gl.ARRAY_BUFFER, last_array_buffer);
-    gl && (last_element_array_buffer !== null) && gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, last_element_array_buffer);
-    gl && (last_blend_equation_rgb !== null && last_blend_equation_alpha !== null) && gl.blendEquationSeparate(last_blend_equation_rgb, last_blend_equation_alpha);
-    gl && (last_blend_src_rgb !== null && last_blend_src_alpha !== null && last_blend_dst_rgb !== null && last_blend_dst_alpha !== null) && gl.blendFuncSeparate(last_blend_src_rgb, last_blend_src_alpha, last_blend_dst_rgb, last_blend_dst_alpha);
-    gl && (last_enable_blend ? gl.enable(gl.BLEND) : gl.disable(gl.BLEND));
-    gl && (last_enable_cull_face ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE));
-    gl && (last_enable_depth_test ? gl.enable(gl.DEPTH_TEST) : gl.disable(gl.DEPTH_TEST));
-    gl && (last_enable_scissor_test ? gl.enable(gl.SCISSOR_TEST) : gl.disable(gl.SCISSOR_TEST));
-    // glPolygonMode(GL_FRONT_AND_BACK, (GLenum)last_polygon_mode[0]);
-    gl && (last_viewport !== null) && gl.viewport(last_viewport[0], last_viewport[1], last_viewport[2], last_viewport[3]);
-    gl && (last_scissor_box !== null) && gl.scissor(last_scissor_box[0], last_scissor_box[1], last_scissor_box[2], last_scissor_box[3]);
+    RestoreBackupGLState(backup_state);
 }
 
 export function CreateFontsTexture(): void {

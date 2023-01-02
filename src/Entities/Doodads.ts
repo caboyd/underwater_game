@@ -30,6 +30,7 @@ export class Doodads extends InstancedChunkEntity {
                 const mat = mat4.create();
                 if (is_billboard) {
                     mat4.fromTranslation(mat, pos);
+                    this.instanced_mesh.addInstance(mat);
                 } else {
                     const center = vec3.add(vec3.create(), pos, normal);
                     mat4.targetTo(mat, pos, center, [0, 0, 1]);
