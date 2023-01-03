@@ -147,18 +147,16 @@ async function initScene() {
     chunk_entities = new ChunkEntities(Height_Opt);
 
     const rocks = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
-    const promises = [];
-    for (const letter of rocks) {
-        promises.push(
+    await Promise.all(
+        rocks.map((letter) =>
             initRocks(
                 `rock${letter}.obj`,
                 "iwo-assets/underwater_game/obj/rocks/",
                 `rock_${letter}`,
                 2000 / rocks.length
             )
-        );
-    }
-    await Promise.all(promises);
+        )
+    );
 
     //NOTE: must do after rocks
     chests = await Chests.Create(gl, height_map, chunk_entities, getFloorNormalWithRocks);
@@ -473,14 +471,17 @@ function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
 
             const r = e.radius + 0.05; //to prevent objects/camera going inside
             if (dist < r) {
-                //solve positive y in equation for sphere at floor_pos inside sphere
+                //equation of the sphere is x2 + y2 + z2 = r2
 
+                //floor_pos relative to sphere center
                 vec3.sub(dir, floor_pos, e.position);
+
+                //solve upper hemisphere y in equation for sphere at floor_pos inside sphere
                 dir[1] = Math.sqrt(r * r - dir[0] * dir[0] - dir[2] * dir[2]);
                 let floor = dir[1] + e.position[1];
 
                 if (floor > best_floor) {
-                    vec3.copy(best_normal, vec3.normalize(dir, dir));
+                    vec3.normalize(best_normal, dir);
                     best_floor = floor;
                 }
             }

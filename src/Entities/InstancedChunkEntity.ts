@@ -21,6 +21,8 @@ export class InstancedChunkEntity {
             const entities = chunk_entities.getChunkEntities(x, z);
             for (const e of entities) {
                 if (e.type !== this.id) continue;
+
+                //reuse existing instances
                 if (index < len) {
                     mat4.copy(this.instanced_mesh.instance_matrix[index], e.instance);
                 } else {
