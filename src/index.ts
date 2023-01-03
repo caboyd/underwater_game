@@ -275,8 +275,6 @@ function update() {
     //cell range increased when looking orthogonal to up/down
     const cell_range = Math.ceil(Math.pow(1.0 - down_angle, 1 / 3) * max_cells_range);
 
-    console.log(cell_range);
-
     const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, cam_forward, fovx, cell_range, cell_radius);
 
     if (!arraysEqual(chunk_coords, last_chunks)) {
