@@ -48,7 +48,8 @@ let rocks_array: Rocks[] = [];
 let doodads_array: Doodads[] = [];
 let chunk_entities: ChunkEntities;
 
-let light_toggle: boolean = true;
+let light_toggle = true;
+let light_changed = true;
 
 class Static<T> {
     constructor(public value: T) {}
@@ -234,15 +235,13 @@ async function initScene() {
 
 let delta = 0;
 let last_now = Date.now();
-let last_camera_forward = vec3.create();
-let last_camera_pos = vec3.create();
 let last_chunks: Uint16Array = new Uint16Array();
 
 function update() {
     const new_now = Date.now();
     delta = new_now - last_now;
     last_now = new_now;
-    delta = Math.min(delta, 20);
+    delta = Math.min(delta, 33);
 
     let io = ImGui.GetIO();
     fps_control.mouse_active = !io.WantCaptureMouse;
@@ -260,41 +259,39 @@ function update() {
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = Math.min(floor + 0.5, camera.position[1] + 0.5);
 
-    //check if view changed to determin what needs updating
-    const forward = camera.getForward();
-    let view_changed = false;
-    if (
-        last_camera_forward[0] !== forward[0] ||
-        last_camera_forward[1] !== forward[1] ||
-        last_camera_forward[2] !== forward[2] ||
-        last_camera_pos[0] !== camera.position[0] ||
-        last_camera_pos[1] !== camera.position[1] ||
-        last_camera_pos[2] !== camera.position[2]
-    ) {
-        view_changed = true;
-    }
-    vec3.copy(last_camera_forward, forward);
-    vec3.copy(last_camera_pos, camera.position);
+    const cam_forward = camera.getForward();
+    const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+    const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
 
-    if (view_changed) {
-        const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
-        const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
+    //get angle between (0,-1,0) and camera
+    let down_angle = Math.max(vec3.angle(cam_forward, [0, 1, 0]), vec3.angle(cam_forward, [0, -1, 0])) / Math.PI;
+    //map from 0 to 1
+    down_angle = down_angle * 2 - 1;
+    const max_cells_radius = 8;
+    //increase nearby cell radius when looking up/down so we dont see empty cells
+    const cell_radius = Math.ceil(down_angle * (max_cells_radius - 2) + (max_cells_radius - 6));
 
-        const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), fovx, 12, 4);
-        if (!arraysEqual(chunk_coords, last_chunks)) {
-            ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-            ceiling_chunk.mesh.instances = chunk_coords.length / 2;
-            floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-            floor_chunk.mesh.instances = chunk_coords.length / 2;
+    const max_cells_range = 14;
+    //cell range increased when looking orthogonal to up/down
+    const cell_range = Math.ceil(Math.pow(1.0 - down_angle, 1 / 3) * max_cells_range);
 
-            chests.updateVisibleInstances(chunk_coords, chunk_entities);
-            for (const rocks of rocks_array) rocks.updateVisibleInstances(chunk_coords, chunk_entities);
-            for (const doodads of doodads_array) {
-                if (doodads.id.includes("3d")) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
-            }
+    console.log(cell_range);
 
-            last_chunks = new Uint16Array(chunk_coords);
+    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, cam_forward, fovx, cell_range, cell_radius);
+
+    if (!arraysEqual(chunk_coords, last_chunks)) {
+        ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+        ceiling_chunk.mesh.instances = chunk_coords.length / 2;
+        floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
+        floor_chunk.mesh.instances = chunk_coords.length / 2;
+
+        chests.updateVisibleInstances(chunk_coords, chunk_entities);
+        for (const rocks of rocks_array) rocks.updateVisibleInstances(chunk_coords, chunk_entities);
+        for (const doodads of doodads_array) {
+            if (doodads.id.includes("3d")) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
         }
+
+        last_chunks = new Uint16Array(chunk_coords);
     }
 
     //find the 4 chunks surrounding player
@@ -392,8 +389,10 @@ function drawUI(): void {
     ImGui_Impl.RenderDrawData(ImGui.GetDrawData(), backup_gl_state);
 }
 
+const light_uniforms = new Map();
 function setupLights() {
-    const uniforms = new Map();
+    if (!light_changed) return;
+    light_changed = false;
     if (light_toggle) {
         const ambient_intensity = 0.02;
         const ambient_color = [
@@ -403,11 +402,11 @@ function setupLights() {
         ];
         const light_intensity = 10;
         const light_color = [(light_intensity * 60) / 255, (light_intensity * 60) / 255, (light_intensity * 75) / 255];
-        uniforms.set("u_lights[0].position", [camera.position[0], camera.position[1], camera.position[2], 1]);
-        uniforms.set("u_lights[0].color", light_color);
-        uniforms.set("light_ambient", ambient_color);
-        uniforms.set("u_lights[0].linear_falloff", 0.2);
-        uniforms.set("u_lights[0].squared_falloff", 0.004);
+        light_uniforms.set("u_lights[0].position", [camera.position[0], camera.position[1], camera.position[2], 1]);
+        light_uniforms.set("u_lights[0].color", light_color);
+        light_uniforms.set("light_ambient", ambient_color);
+        light_uniforms.set("u_lights[0].linear_falloff", 0.2);
+        light_uniforms.set("u_lights[0].squared_falloff", 0.004);
     } else {
         const ambient_intensity = 0.4;
         const ambient_color = [
@@ -418,16 +417,19 @@ function setupLights() {
         const sun_dir = [-1, 0.8, 1];
         const sun_intensity = 2;
         const sun_color = [(sun_intensity * 254) / 255, (sun_intensity * 238) / 255, (sun_intensity * 224) / 255];
-        uniforms.set("u_lights[0].position", [sun_dir[0], sun_dir[1], sun_dir[2], 0]);
-        uniforms.set("u_lights[0].color", sun_color);
-        uniforms.set("light_ambient", ambient_color);
+        light_uniforms.set("u_lights[0].position", [sun_dir[0], sun_dir[1], sun_dir[2], 0]);
+        light_uniforms.set("u_lights[0].color", sun_color);
+        light_uniforms.set("light_ambient", ambient_color);
     }
-    renderer.addShaderVariantUniforms(IWO.ShaderSource.PBR, uniforms);
-    renderer.addShaderVariantUniforms(HeightMapShaderSource, uniforms);
+    renderer.addShaderVariantUniforms(IWO.ShaderSource.PBR, light_uniforms);
+    renderer.addShaderVariantUniforms(HeightMapShaderSource, light_uniforms);
 }
 
 document.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.key === "l") light_toggle = !light_toggle;
+    if (e.key === "l") {
+        light_toggle = !light_toggle;
+        light_changed = true;
+    }
 });
 
 function getSurroundingChunks(pos: vec3): [number, number][] {

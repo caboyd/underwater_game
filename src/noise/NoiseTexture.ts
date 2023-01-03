@@ -23,6 +23,9 @@ export class NoiseTexture implements HeightMapOptions {
     height_map: HeightMap;
     data: Float32Array;
     components: number = 2;
+    max_cells_drawn_per_frame = 80;
+    cells_drawn_this_frame = 0;
+    chunk_coords: Uint16Array;
 
     constructor(gl: WebGL2RenderingContext, options?: Partial<HeightMapOptions>) {
         const opt = { ...DefaultHeightMapOptions, ...options };
@@ -34,6 +37,7 @@ export class NoiseTexture implements HeightMapOptions {
         this.chunk_width_z = opt.chunk_width_z;
         this.tex_x_cells = opt.tex_x_cells;
         this.tex_z_cells = opt.tex_z_cells;
+        this.chunk_coords = new Uint16Array(this.x_chunks * this.z_chunks * 2);
 
         this.generated_cells = new Array(this.z_chunks)
             .fill(new Array())
@@ -77,7 +81,7 @@ export class NoiseTexture implements HeightMapOptions {
         vec2.rotate(temp_fov_dir1, temp_dir2, [0, 0], -fov_radians);
         vec2.rotate(temp_fov_dir2, temp_dir2, [0, 0], fov_radians);
 
-        const chunk_coords = [];
+        let chunk_coords_size = 0;
 
         const angle = vec2.angle(temp_fov_dir1, temp_fov_dir2);
         const MAX_DIST_SQ =
@@ -95,8 +99,12 @@ export class NoiseTexture implements HeightMapOptions {
                     x < x_index + cell_radius &&
                     x > x_index - cell_radius
                 ) {
-                    chunk_coords.push([x, z]);
-                    if (this.drawTexture(x, z)) did_draw = true;
+                    this.chunk_coords[chunk_coords_size++] = x;
+                    this.chunk_coords[chunk_coords_size++] = z;
+                    if (this.drawTexture(x, z)) {
+                        did_draw = true;
+                        this.cells_drawn_this_frame++;
+                    }
                     continue;
                 }
 
@@ -119,23 +127,26 @@ export class NoiseTexture implements HeightMapOptions {
                 const pos_angle_1 = vec2.angle(temp_pos_to_chunk_center, temp_fov_dir1);
                 const pos_angle_2 = vec2.angle(temp_pos_to_chunk_center, temp_fov_dir2);
                 if (pos_angle_1 < angle && pos_angle_2 < angle) {
-                    chunk_coords.push([x, z]);
-                    if (this.drawTexture(x, z)) did_draw = true;
+                    if (this.cells_drawn_this_frame > this.max_cells_drawn_per_frame) continue;
+                    this.chunk_coords[chunk_coords_size++] = x;
+                    this.chunk_coords[chunk_coords_size++] = z;
+
+                    if (this.drawTexture(x, z)) {
+                        did_draw = true;
+                        this.cells_drawn_this_frame++;
+                    }
                 }
             }
         }
 
         if (did_draw) this.updateTexture2D(gl);
-        //sort for later comparison
-        chunk_coords.sort((a, b) => {
-            return (a[0] - b[0]) * this.x_chunks + (a[1] - b[1]);
-        });
 
-        return new Uint16Array(chunk_coords.flat(1));
+        return this.chunk_coords.subarray(0, chunk_coords_size);
     }
 
     public drawTexture(x: number, z: number): boolean {
         if (this.generated_cells[z][x] === true) return false;
+
         this.generated_cells[z][x] = true;
 
         const width = this.x_cells * this.x_chunks;
@@ -159,6 +170,7 @@ export class NoiseTexture implements HeightMapOptions {
     }
 
     public updateTexture2D(gl: WebGL2RenderingContext) {
+        this.cells_drawn_this_frame = 0;
         const width = this.x_cells * this.x_chunks;
         const height = this.z_cells * this.z_chunks;
         gl.bindTexture(gl.TEXTURE_2D, this.texture.texture_id);
