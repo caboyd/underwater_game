@@ -272,7 +272,7 @@ function update(delta_ms: number) {
 
     //update player
 
-    player.update2(delta_ms,getFloorCeilNormalWithRocks);
+    player.update2(delta_ms, getFloorCeilNormalWithRocks);
 
     //find the 4 chunks surrounding player
     const active_chunks = getSurroundingChunks(camera.position);
@@ -452,25 +452,23 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
 function getSurroundingChunks(pos: vec3): [number, number][] {
     const result: [number, number][] = [];
 
-    //bottom left
-    let x = Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
-    let z = Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
+    const x0 = Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
+    const z0 = Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
+    const x1 = Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
+    const z1 = Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
     //assert in bounds
-    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
-    //bottom right
-    x = Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
-    z = Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
-    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
-
-    //top left
-    x = Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
-    z = Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
-    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
-
-    //top right
-    x = Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
-    z = Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
-    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
+    if (x0 < Height_Opt.x_chunks && x0 >= 0) {
+        //bottom left
+        if (z0 < Height_Opt.z_chunks && z0 >= 0) result.push([x0, z0]);
+        //top left
+        if (z1 < Height_Opt.z_chunks && z1 >= 0) result.push([x0, z1]);
+    }
+    if (x1 < Height_Opt.x_chunks && x1 >= 0) {
+        //bottom right
+        if (z0 < Height_Opt.z_chunks && z0 >= 0) result.push([x1, z0]);
+        //top right
+        if (z1 < Height_Opt.z_chunks && z1 >= 0) result.push([x1, z1]);
+    }
 
     return result;
 }
