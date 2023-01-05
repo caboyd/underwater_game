@@ -62,6 +62,12 @@ class Static<T> {
     access: ImGui.Access<T> = (value: T = this.value): T => (this.value = value);
 }
 
+const gui = {
+    show_frame_info: new Static<boolean>(true),
+    show_game_info: new Static<boolean>(true),
+    show_help_info: new Static<boolean>(true),
+};
+
 const game_info = {
     score: 0,
 };
@@ -370,6 +376,25 @@ function drawUI(): void {
     ImGui_Impl.NewFrame(0);
     ImGui.NewFrame();
     {
+        const frame_width = 200;
+        ImGui.SetNextWindowPos(new ImGui.ImVec2(0, 0), ImGui.Cond.Always);
+        ImGui.SetNextWindowSize(new ImGui.ImVec2(0, 0), ImGui.Cond.Always);
+        ImGui.Begin("Menu Window", null, window_flags | ImGui.WindowFlags.MenuBar | ImGui.WindowFlags.NoTitleBar);
+
+        if (ImGui.BeginMenuBar()) {
+            if (ImGui.BeginMenu("Menu", true)) {
+                ImGui.MenuItem("Frame Info", null, gui.show_frame_info.access);
+                ImGui.MenuItem("Game Info", null, gui.show_game_info.access);
+                ImGui.MenuItem("How To Play", null, gui.show_help_info.access);
+                ImGui.EndMenu();
+            }
+            ImGui.EndMenuBar();
+        }
+
+        ImGui.End();
+    }
+
+    if (gui.show_game_info.value) {
         const frame_width = 225;
         ImGui.SetNextWindowPos(new ImGui.ImVec2(gl.drawingBufferWidth - frame_width, 0), ImGui.Cond.Always);
         ImGui.SetNextWindowSize(new ImGui.ImVec2(frame_width, 0), ImGui.Cond.Always);
@@ -382,16 +407,16 @@ function drawUI(): void {
                 z: camera.position[2].toFixed(2),
             };
             ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
-            ImGui.Text(`pos: ${x}, ${y}, ${z} `);
-            ImGui.Text(`score: ${game_info.score} `);
+            ImGui.Text(`Pos: ${x}, ${y}, ${z} `);
+            ImGui.Text(`Score: ${game_info.score} `);
             ImGui.PopStyleColor();
             ImGui.End();
         }
     }
-    {
-        ImGui.SetNextWindowPos(new ImGui.ImVec2(0, 0), ImGui.Cond.Always);
+    if (gui.show_frame_info.value) {
+        ImGui.SetNextWindowPos(new ImGui.ImVec2(0, 18), ImGui.Cond.Always);
         {
-            ImGui.Begin("Frame Info", null, window_flags);
+            ImGui.Begin("Frame Info", null, window_flags | ImGui.WindowFlags.NoTitleBar);
             ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
 
             let fps_text = `FPS ${Math.round(1000 / rolling_delta.avg())}`;
@@ -404,11 +429,54 @@ function drawUI(): void {
             ImGui.End();
         }
     }
+    if (gui.show_help_info.value) {
+        const main_viewport = ImGui.GetMainViewport(); 
+        const frame_width = 350;
+        ImGui.SetNextWindowPos(
+            new ImGui.ImVec2(
+                main_viewport.GetCenter().x - frame_width / 2,
+                main_viewport.GetCenter().y - frame_width / 2
+            ),
+            ImGui.Cond.FirstUseEver
+        );
+        ImGui.SetNextWindowSize(new ImGui.ImVec2(frame_width, frame_width), ImGui.Cond.FirstUseEver);
+        {
+            ImGui.Begin("How To Play", gui.show_help_info.access, ImGui.WindowFlags.AlwaysAutoResize);
+
+            ImGui.TextWrapped("Move around and collect treasture chests to increase the score.");
+            ImGui.Separator();
+            ImGui.Text("Controls");
+            {
+                ImGui.Indent(5);
+                if (ImGui.BeginTable("Controls Table", 2, ImGui.TableFlags.BordersInner | ImGui.TableFlags.Borders)) {
+                    TableRowTwoColumn("Look Around", "Hold Left Click");
+                    TableRowTwoColumn("Strafe Left", "A");
+                    TableRowTwoColumn("Strafe Right", "D");
+                    TableRowTwoColumn("Forward", "W");
+                    TableRowTwoColumn("Backwards", "S");
+                    TableRowTwoColumn("Float Up", "Space Bar");
+                    TableRowTwoColumn("Speed Boost Modifier", "Shift");
+                    ImGui.EndTable();
+                }
+                ImGui.Unindent(5);
+            }
+
+            ImGui.End();
+        }
+    }
     ImGui.EndFrame();
     ImGui.Render();
 
     if (backup_gl_state === undefined) backup_gl_state = ImGui_Impl.GetBackupGLState();
     ImGui_Impl.RenderDrawData(ImGui.GetDrawData(), backup_gl_state);
+
+    function TableRowTwoColumn(text1: string, text2: string) {
+        ImGui.TableNextRow();
+        ImGui.TableSetColumnIndex(0);
+        ImGui.Text(text1);
+        ImGui.TableSetColumnIndex(1);
+        ImGui.Text(text2);
+    }
 }
 
 const light_uniforms = new Map();
