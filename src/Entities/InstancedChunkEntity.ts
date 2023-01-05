@@ -28,10 +28,11 @@ export class InstancedChunkEntity {
                 } else {
                     this.instanced_mesh.addInstance(e.instance);
                 }
-                this.instanced_mesh.refreshBuffer();
+
                 index++;
             }
         }
+        this.instanced_mesh.refreshBuffer();
         this.instanced_mesh.instance_matrix.length = index;
     }
 }

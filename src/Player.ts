@@ -19,14 +19,17 @@ export class Player extends IWO.FPSControl {
         throw "dont call player update. call update2";
     }
 
-    update2(delta_ms: number, floorceilnormal_fuc: (pos: vec3) => { floor: number; ceil: number; normal: vec3 }) {
+    update2(
+        delta_ms: number,
+        floorceilnormal_fuc: (pos: vec3, collision_radius: number) => { floor: number; ceil: number; normal: vec3 }
+    ) {
         this.processMouseMovement(delta_ms);
         this.processKeyboard2(delta_ms, floorceilnormal_fuc);
     }
 
     protected processKeyboard2(
         delta_ms: number,
-        floorceilnormal_func: (pos: vec3) => { floor: number; ceil: number; normal: vec3 }
+        floorceilnormal_func: (pos: vec3, collision_radius: number) => { floor: number; ceil: number; normal: vec3 }
     ) {
         const delta_s = delta_ms / 1000;
         const binds = this.opt.binds;
@@ -76,7 +79,7 @@ export class Player extends IWO.FPSControl {
         //apply velocity
         vec3.add(this.camera.position, this.camera.position, this.velocity);
 
-        const { floor, ceil, normal } = floorceilnormal_func(this.camera.position);
+        const { floor, ceil, normal } = floorceilnormal_func(this.camera.position, 0.1);
 
         //apply collision
         if (ceil - floor < PLAYER_SIZE * 2) {
@@ -86,7 +89,7 @@ export class Player extends IWO.FPSControl {
         if (ceil - this.camera.position[1] < PLAYER_SIZE) this.camera.position[1] = ceil - PLAYER_SIZE;
         if (this.camera.position[1] - floor < PLAYER_SIZE) {
             this.camera.position[1] = Math.min(floor + PLAYER_SIZE, this.camera.position[1] + PLAYER_SIZE);
-            this.velocity[1] = 0;
+            this.velocity[1] = Math.max(0, this.velocity[1]);
         }
 
         //apply drag

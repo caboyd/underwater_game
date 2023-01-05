@@ -227,10 +227,11 @@ export class HeightMap implements HeightMapOptions {
         ];
         const cross = vec3.cross(
             vec3.create(),
-            vec3.sub(vec3.create(), right, left),
-            vec3.sub(vec3.create(), bottom, top)
+            vec3.sub(vec3.create(), bottom, top),
+            vec3.sub(vec3.create(), right, left)
         );
         vec3.normalize(cross, cross);
+       // console.log(cross);
         return cross;
     }
     public activateMeshesInView(

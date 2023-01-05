@@ -3,17 +3,18 @@ import * as ImGui from "imgui-js/imgui";
 import * as ImGui_Impl from "imgui-js/imgui_impl";
 import * as IWO from "iwo-renderer";
 import { ChunkEntities } from "src/Entities/ChunkEntities";
+import { Crabs } from "src/Entities/Crabs";
 import { Doodads } from "src/Entities/Doodads";
+import { Rocks } from "src/Entities/Rocks";
 import { HeightMapOptions } from "src/heightmap/HeightMap";
-import { HeightMapChunkInstanced } from "src/heightmap/HeightMapChunkInstanced";
+import { HeightMapChunkInstanced, HeightMapChunkInstancedOptions } from "src/heightmap/HeightMapChunkInstanced";
 import { HeightMapMaterial } from "src/heightmap/HeightMapMaterial";
 import { HeightMapShaderSource } from "src/heightmap/HeightMapShader";
 import { NoiseTexture } from "src/noise/NoiseTexture";
-import { Rocks } from "src/Entities/Rocks";
 import { Chests } from "./Entities/Chests";
 import { HeightMap } from "./heightmap/HeightMap";
-import { RollingAverage } from "./RollingAverage";
 import { Player } from "./Player";
+import { RollingAverage } from "./RollingAverage";
 
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
@@ -46,6 +47,7 @@ let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
+let crabs: Crabs;
 let rocks_array: Rocks[] = [];
 let doodads_array: Doodads[] = [];
 let chunk_entities: ChunkEntities;
@@ -65,7 +67,7 @@ class Static<T> {
 const gui = {
     show_frame_info: new Static<boolean>(true),
     show_game_info: new Static<boolean>(true),
-    show_help_info: new Static<boolean>(true),
+    show_help_info: new Static<boolean>(false),
 };
 
 const game_info = {
@@ -138,7 +140,15 @@ async function initScene() {
         height_map_options: Height_Opt,
         pbr_material_options: { albedo_texture: height_map.material.albedo_texture },
     });
-    const c_chunk = new HeightMapChunkInstanced({ flip_y: true });
+
+    const chunk_opt: Partial<HeightMapChunkInstancedOptions> = {
+        x_cells: Height_Opt.x_cells,
+        z_cells: Height_Opt.z_cells,
+        tex_x_cells: Height_Opt.tex_x_cells,
+        tex_z_cells: Height_Opt.tex_z_cells,
+    };
+
+    const c_chunk = new HeightMapChunkInstanced({ ...chunk_opt, flip_y: true });
     const c_chunk_mesh = new IWO.Mesh(gl, c_chunk);
     ceiling_chunk = new IWO.MeshInstance(c_chunk_mesh, ceiling_mat);
 
@@ -148,7 +158,7 @@ async function initScene() {
         pbr_material_options: { albedo_texture: height_map.material.albedo_texture },
     });
 
-    const f_chunk = new HeightMapChunkInstanced();
+    const f_chunk = new HeightMapChunkInstanced(chunk_opt);
     const f_chunk_mesh = new IWO.Mesh(gl, f_chunk);
     floor_chunk = new IWO.MeshInstance(f_chunk_mesh, floor_mat);
 
@@ -175,13 +185,29 @@ async function initScene() {
     //NOTE: must do after rocks
     chests = await Chests.Create(gl, height_map, chunk_entities, getFloorCeilNormalWithRocks);
 
+    crabs = new Crabs(
+        height_map,
+        chunk_entities,
+        getFloorCeilNormalWithRocks,
+        "crab",
+        await objInstancedMesh("crab.obj", "iwo-assets/underwater_game/obj/doodads/", [0, 0.02, 0], [0.06, 0.06, 0.06]),
+        2000
+    );
+
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
     const doodad_count_3d = 200;
     const doodad_count_billboard = Math.floor(25000 / 6);
 
-    await initDoodadObj("starfish_low.obj", obj_url, "starfish_3d", doodad_count_3d, [0.0015, 0.0015, 0.0015]);
-    await initDoodadObj("seashell_low.obj", obj_url, "seashell_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.05, 0]);
+    await initDoodadObj(
+        "starfish_low.obj",
+        obj_url,
+        "starfish_3d",
+        doodad_count_3d,
+        [0.0015, 0.0015, 0.0015],
+        [0, -0.005, 0]
+    );
+    await initDoodadObj("seashell_low.obj", obj_url, "seashell_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.005, 0]);
     await initDoodadObj("urchin.obj", obj_url, "urchin_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.05, 0]);
     // await initDoodadObj("plant3.obj", obj_url, "plant3", doodad_count_3d, [2, 2, 2]);
     // await initDoodadObj("plant6.obj", obj_url, "plant6", doodad_count_3d, [0.6, 0.6, 0.6]);
@@ -195,12 +221,19 @@ async function initScene() {
     await initDoodadBillboard("seaweed_wide.png", image_url, "seaweed_wide", doodad_count_billboard, [1, 1, 1]);
     await initDoodadBillboard("together.png", image_url, "together", doodad_count_billboard, [1, 1, 1]);
 
-    async function initRocks(file_name: string, base_url: string, object_name: string, count: number) {
+    async function objInstancedMesh(file_name: string, base_url: string, translate?: vec3, scale?: vec3) {
         const data = await IWO.ObjLoader.promise(file_name, base_url, {
             flip_image_y: true,
         });
         const m = new IWO.Mesh(gl, data.objects[0].geometry);
         const im = new IWO.InstancedMesh(m, data.materials);
+        if (translate) mat4.translate(im.model_matrix, im.model_matrix, translate);
+        if (scale) mat4.scale(im.model_matrix, im.model_matrix, scale);
+        return im;
+    }
+
+    async function initRocks(file_name: string, base_url: string, object_name: string, count: number) {
+        const im = await objInstancedMesh(file_name, base_url);
         rocks_array.push(new Rocks(height_map, chunk_entities, object_name, im, count));
     }
 
@@ -212,11 +245,7 @@ async function initScene() {
         scale: vec3 = vec3.fromValues(1, 1, 1),
         offset: vec3 = vec3.create()
     ) {
-        const obj_data = await IWO.ObjLoader.promise(file_name, base_url, { flip_image_y: true });
-        const mesh = new IWO.Mesh(gl, obj_data.objects[0].geometry);
-        const instance = new IWO.InstancedMesh(mesh, obj_data.materials!);
-        mat4.translate(instance.model_matrix, instance.model_matrix, offset);
-        mat4.scale(instance.model_matrix, instance.model_matrix, scale);
+        const instance = await objInstancedMesh(file_name, base_url, offset, scale);
         doodads_array.push(
             new Doodads(height_map, chunk_entities, getFloorCeilNormalWithRocks, object_name, instance, false, count)
         );
@@ -323,6 +352,7 @@ function updateVisibleChunks() {
         floor_chunk.mesh.instances = chunk_coords.length / 2;
 
         chests.updateVisibleInstances(chunk_coords, chunk_entities);
+        crabs.updateVisibleInstances(chunk_coords, chunk_entities);
         for (const rocks of rocks_array) rocks.updateVisibleInstances(chunk_coords, chunk_entities);
         for (const doodads of doodads_array) {
             if (doodads.id.includes("3d")) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
@@ -346,6 +376,7 @@ function drawScene() {
     floor_chunk.render(renderer, v, p);
 
     chests.instanced_mesh.render(renderer, v, p);
+    crabs.instanced_mesh.render(renderer, v, p);
     for (const rocks of rocks_array) rocks.instanced_mesh.render(renderer, v, p);
 
     gl.enable(gl.BLEND);
@@ -430,7 +461,7 @@ function drawUI(): void {
         }
     }
     if (gui.show_help_info.value) {
-        const main_viewport = ImGui.GetMainViewport(); 
+        const main_viewport = ImGui.GetMainViewport();
         const frame_width = 350;
         ImGui.SetNextWindowPos(
             new ImGui.ImVec2(
@@ -541,7 +572,10 @@ function getSurroundingChunks(pos: vec3): [number, number][] {
     return result;
 }
 
-function getFloorCeilNormalWithRocks(pos: vec3): { floor: number; ceil: number; normal: vec3 } {
+function getFloorCeilNormalWithRocks(
+    pos: vec3,
+    collision_radius: number = 0
+): { floor: number; ceil: number; normal: vec3 } {
     const surrounding_chunks = getSurroundingChunks(pos);
     let { floor: best_floor, ceil } = height_map.getFloorAndCeiling(pos[0], pos[2]);
     let best_normal = height_map.getNormalAtFloor(pos[0], pos[2]);
@@ -552,11 +586,12 @@ function getFloorCeilNormalWithRocks(pos: vec3): { floor: number; ceil: number; 
 
         for (const e of entities) {
             if (!e.type.includes("rock")) continue;
-            //check intersection with pos at floor level;
-            const dist = vec3.dist(floor_pos, e.position);
             if (!e.radius) throw "missing radius on rock";
 
-            const r = e.radius + 0.05; //to prevent objects/camera going inside
+            //check intersection with pos at floor level;
+            const dist = vec3.dist(floor_pos, e.position);
+
+            const r = e.radius + collision_radius; //to prevent objects/camera going inside
             if (dist < r) {
                 //equation of the sphere is x2 + y2 + z2 = r2
 
