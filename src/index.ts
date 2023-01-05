@@ -106,7 +106,7 @@ async function initScene() {
     camera = new IWO.Camera(cPos, [-0.7, 0, -0.7]);
     camera.getViewMatrix(view_matrix);
 
-    player = new  Player(camera, { forward_sprint_modifier: 5 });
+    player = new Player(camera, { forward_sprint_modifier: 2.2 });
 
     const intensity = 0.08;
     gl.clearColor(1 / 255, (55 / 255) * intensity, (75 / 255) * intensity, 1.0);
@@ -167,7 +167,7 @@ async function initScene() {
     );
 
     //NOTE: must do after rocks
-    chests = await Chests.Create(gl, height_map, chunk_entities, getFloorNormalWithRocks);
+    chests = await Chests.Create(gl, height_map, chunk_entities, getFloorCeilNormalWithRocks);
 
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
@@ -212,7 +212,7 @@ async function initScene() {
         mat4.translate(instance.model_matrix, instance.model_matrix, offset);
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
         doodads_array.push(
-            new Doodads(height_map, chunk_entities, getFloorNormalWithRocks, object_name, instance, false, count)
+            new Doodads(height_map, chunk_entities, getFloorCeilNormalWithRocks, object_name, instance, false, count)
         );
     }
 
@@ -235,7 +235,7 @@ async function initScene() {
         mat4.scale(instance.model_matrix, instance.model_matrix, scale);
         mat4.translate(instance.model_matrix, instance.model_matrix, [0, 0.5, 0]);
         doodads_array.push(
-            new Doodads(height_map, chunk_entities, getFloorNormalWithRocks, object_name, instance, true, count)
+            new Doodads(height_map, chunk_entities, getFloorCeilNormalWithRocks, object_name, instance, true, count)
         );
     }
 }
@@ -267,16 +267,12 @@ function update(delta_ms: number) {
 
     setupLights();
 
-    //update player position
-    const last_pos = vec3.clone(camera.position);
-    player.update(delta_ms);
-    //check if valid pos
     let ceil = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]).ceil;
-    let floor = getFloorNormalWithRocks(camera.position).floor;
+    let floor = getFloorCeilNormalWithRocks(camera.position).floor;
 
-    if (ceil - floor < 1.0) vec3.copy(camera.position, last_pos);
-    if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
-    if (camera.position[1] - floor < 0.5) camera.position[1] = Math.min(floor + 0.5, camera.position[1] + 0.5);
+    //update player
+
+    player.update2(delta_ms,getFloorCeilNormalWithRocks);
 
     //find the 4 chunks surrounding player
     const active_chunks = getSurroundingChunks(camera.position);
@@ -479,9 +475,9 @@ function getSurroundingChunks(pos: vec3): [number, number][] {
     return result;
 }
 
-function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
+function getFloorCeilNormalWithRocks(pos: vec3): { floor: number; ceil: number; normal: vec3 } {
     const surrounding_chunks = getSurroundingChunks(pos);
-    let best_floor = height_map.getFloorAndCeiling(pos[0], pos[2]).floor;
+    let { floor: best_floor, ceil } = height_map.getFloorAndCeiling(pos[0], pos[2]);
     let best_normal = height_map.getNormalAtFloor(pos[0], pos[2]);
     const floor_pos = vec3.fromValues(pos[0], best_floor, pos[2]);
     const dir = vec3.create();
@@ -512,7 +508,7 @@ function getFloorNormalWithRocks(pos: vec3): { floor: number; normal: vec3 } {
             }
         }
     }
-    return { floor: best_floor, normal: best_normal };
+    return { floor: best_floor, ceil: ceil, normal: best_normal };
 }
 
 function arraysEqual(a: IWO.TypedArray | unknown[], b: IWO.TypedArray | unknown[]) {

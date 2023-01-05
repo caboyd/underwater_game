@@ -2,9 +2,10 @@ import { vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
 
 const DRAG_FACTOR = 0.2;
-const ACCEL = 8;
+const ACCELERATION = 8 / 30;
 const MAX_VEL = 8;
-const GRAVITY = 5;
+const GRAVITY = 5 / 30;
+const PLAYER_SIZE = 0.75;
 const temp_vel = vec3.create();
 
 export class Player extends IWO.FPSControl {
@@ -15,15 +16,22 @@ export class Player extends IWO.FPSControl {
     }
 
     update(delta_ms: number) {
-        this.processMouseMovement(delta_ms);
-        this.processKeyboard(delta_ms);
+        throw "dont call player update. call update2";
     }
 
-    protected processKeyboard(delta_ms: number) {
+    update2(delta_ms: number, floorceilnormal_fuc: (pos: vec3) => { floor: number; ceil: number; normal: vec3 }) {
+        this.processMouseMovement(delta_ms);
+        this.processKeyboard2(delta_ms, floorceilnormal_fuc);
+    }
+
+    protected processKeyboard2(
+        delta_ms: number,
+        floorceilnormal_func: (pos: vec3) => { floor: number; ceil: number; normal: vec3 }
+    ) {
         const delta_s = delta_ms / 1000;
         const binds = this.opt.binds;
-        const a = ACCEL * delta_s;
-
+        const accel = ACCELERATION * delta_s;
+        const last_pos = vec3.clone(this.camera.position);
         let forward = this.camera.getForward();
         let right = this.camera.getRight();
 
@@ -32,29 +40,54 @@ export class Player extends IWO.FPSControl {
         //add velocity in direction
         if (this.active_keys[binds.FORWARD]) {
             if (this.active_keys[binds.SPRINT])
-                vec3.scaleAndAdd(temp_vel, temp_vel, forward, a * this.opt.forward_sprint_modifier);
-            else vec3.scaleAndAdd(temp_vel, temp_vel, forward, a);
+                vec3.scaleAndAdd(temp_vel, temp_vel, forward, accel * this.opt.forward_sprint_modifier);
+            else vec3.scaleAndAdd(temp_vel, temp_vel, forward, accel);
         }
         if (this.active_keys[binds.BACKWARD]) {
-            vec3.scaleAndAdd(temp_vel, temp_vel, forward, -a);
+            vec3.scaleAndAdd(temp_vel, temp_vel, forward, -accel);
         }
 
         if (this.active_keys[binds.LEFT]) {
-            vec3.scaleAndAdd(temp_vel, temp_vel, right, -a);
+            vec3.scaleAndAdd(temp_vel, temp_vel, right, -accel);
         }
         if (this.active_keys[binds.RIGHT]) {
-            vec3.scaleAndAdd(temp_vel, temp_vel, right, a);
+            vec3.scaleAndAdd(temp_vel, temp_vel, right, accel);
         }
 
         if (this.active_keys[binds.UP]) {
-            vec3.scaleAndAdd(temp_vel, temp_vel, this.camera.worldUp, a);
+            vec3.scaleAndAdd(temp_vel, temp_vel, this.camera.worldUp, accel);
         }
         if (this.active_keys[binds.DOWN]) {
-            vec3.scaleAndAdd(temp_vel, temp_vel, this.camera.worldUp, -a);
+            vec3.scaleAndAdd(temp_vel, temp_vel, this.camera.worldUp, -accel);
         }
 
         //add vel to last vel
         vec3.add(this.velocity, this.velocity, temp_vel);
+
+        //cap max vel
+        // const len = vec3.len(this.velocity);
+        // if (len > 0) {
+        //     let scale = (delta_s * MAX_VEL) / vec3.len(this.velocity);
+        //     if (this.active_keys[binds.SPRINT]) scale *= this.opt.forward_sprint_modifier;
+        //     scale = Math.min(scale, 1);
+        //     vec3.scale(this.velocity, this.velocity, scale);
+        // }
+
+        //apply velocity
+        vec3.add(this.camera.position, this.camera.position, this.velocity);
+
+        const { floor, ceil, normal } = floorceilnormal_func(this.camera.position);
+
+        //apply collision
+        if (ceil - floor < PLAYER_SIZE * 2) {
+            vec3.set(this.velocity, 0, 0, 0);
+            vec3.copy(this.camera.position, last_pos);
+        }
+        if (ceil - this.camera.position[1] < PLAYER_SIZE) this.camera.position[1] = ceil - PLAYER_SIZE;
+        if (this.camera.position[1] - floor < PLAYER_SIZE) {
+            this.camera.position[1] = Math.min(floor + PLAYER_SIZE, this.camera.position[1] + PLAYER_SIZE);
+            this.velocity[1] = 0;
+        }
 
         //apply drag
         const drag = Math.pow(DRAG_FACTOR, delta_s);
@@ -62,19 +95,5 @@ export class Player extends IWO.FPSControl {
 
         //apply gravity
         this.velocity[1] -= GRAVITY * delta_s;
-
-        //cap max vel
-        const len = vec3.len(this.velocity);
-        if (len > 0) {
-            let scale = (delta_s * MAX_VEL) / vec3.len(this.velocity);
-            if (this.active_keys[binds.SPRINT]) scale *= this.opt.forward_sprint_modifier;
-            scale = Math.min(scale, 1);
-            vec3.scale(this.velocity, this.velocity, scale);
-        }
-
-        //apply velocity
-        vec3.add(this.camera.position, this.camera.position, this.velocity);
-
-        console.log(`speed: ${(vec3.len(this.velocity) * 1000) / delta_ms}`);
     }
 }
