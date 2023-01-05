@@ -12,6 +12,8 @@ import { NoiseTexture } from "src/noise/NoiseTexture";
 import { Rocks } from "src/Entities/Rocks";
 import { Chests } from "./Entities/Chests";
 import { HeightMap } from "./heightmap/HeightMap";
+import { RollingAverage } from "./RollingAverage";
+import { Player } from "./Player";
 
 let gl: WebGL2RenderingContext;
 const FOV = 45 as const;
@@ -36,7 +38,7 @@ let camera: IWO.Camera;
 const PLAYER_SIZE = 0.5;
 
 let renderer: IWO.Renderer;
-let fps_control: IWO.FPSControl;
+let player: Player;
 
 let height_map: HeightMap;
 let noise_tex: NoiseTexture;
@@ -47,9 +49,13 @@ let chests: Chests;
 let rocks_array: Rocks[] = [];
 let doodads_array: Doodads[] = [];
 let chunk_entities: ChunkEntities;
-
+let rolling_delta = new RollingAverage(20);
 let light_toggle = true;
-let light_changed = true;
+
+let physics_delta = 0;
+const UPDATE_RATE = 1000 / 60;
+let last_now = performance.now();
+let last_chunks: Uint16Array = new Uint16Array();
 
 class Static<T> {
     constructor(public value: T) {}
@@ -92,14 +98,15 @@ const game_info = {
 
     await initScene();
 
-    requestAnimationFrame(update);
+    last_now = performance.now();
+    requestAnimationFrame(requestUpdate);
 })();
 
 async function initScene() {
     camera = new IWO.Camera(cPos, [-0.7, 0, -0.7]);
     camera.getViewMatrix(view_matrix);
 
-    fps_control = new IWO.FPSControl(camera, { forward_sprint_modifier: 5 });
+    player = new  Player(camera, { forward_sprint_modifier: 5 });
 
     const intensity = 0.08;
     gl.clearColor(1 / 255, (55 / 255) * intensity, (75 / 255) * intensity, 1.0);
@@ -165,7 +172,7 @@ async function initScene() {
     const obj_url = root_url + "obj/doodads/";
     const image_url = root_url + "images/";
     const doodad_count_3d = 200;
-    const doodad_count_billboard = 25000 / 6;
+    const doodad_count_billboard = Math.floor(25000 / 6);
 
     await initDoodadObj("starfish_low.obj", obj_url, "starfish_3d", doodad_count_3d, [0.0015, 0.0015, 0.0015]);
     await initDoodadObj("seashell_low.obj", obj_url, "seashell_3d", doodad_count_3d, [0.02, 0.02, 0.02], [0, 0.05, 0]);
@@ -233,24 +240,36 @@ async function initScene() {
     }
 }
 
-let delta = 0;
-let last_now = Date.now();
-let last_chunks: Uint16Array = new Uint16Array();
+function requestUpdate() {
+    const now = performance.now();
+    let delta = now - last_now;
+    last_now = now;
+    delta = Math.min(delta, 250);
+    physics_delta += delta;
+    if (physics_delta - UPDATE_RATE > 0) {
+        do {
+            update(UPDATE_RATE);
+            physics_delta -= UPDATE_RATE;
+        } while (physics_delta - UPDATE_RATE > 0);
+    }
+    rolling_delta.add(delta);
 
-function update() {
-    const new_now = Date.now();
-    delta = new_now - last_now;
-    last_now = new_now;
-    delta = Math.min(delta, 33);
+    updateVisibleChunks();
+    drawScene();
+    drawUI();
 
+    requestAnimationFrame(requestUpdate);
+}
+
+function update(delta_ms: number) {
     let io = ImGui.GetIO();
-    fps_control.mouse_active = !io.WantCaptureMouse;
+    player.mouse_active = !io.WantCaptureMouse;
 
     setupLights();
 
     //update player position
     const last_pos = vec3.clone(camera.position);
-    fps_control.update();
+    player.update(delta_ms);
     //check if valid pos
     let ceil = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]).ceil;
     let floor = getFloorNormalWithRocks(camera.position).floor;
@@ -259,6 +278,24 @@ function update() {
     if (ceil - camera.position[1] < 0.5) camera.position[1] = ceil - 0.5;
     if (camera.position[1] - floor < 0.5) camera.position[1] = Math.min(floor + 0.5, camera.position[1] + 0.5);
 
+    //find the 4 chunks surrounding player
+    const active_chunks = getSurroundingChunks(camera.position);
+    const player_pos = vec3.clone(camera.position);
+    for (const chunk of active_chunks) {
+        const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
+        for (const e of entities) {
+            if (e.type !== "chest") continue;
+            const chest_pos = e.position;
+            const dist = vec3.squaredDistance(player_pos, chest_pos);
+            if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
+                chunk_entities.remove(e.id);
+                game_info.score += 100;
+            }
+        }
+    }
+}
+
+function updateVisibleChunks() {
     const cam_forward = camera.getForward();
     const aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
     const fovx = 2 * Math.atan(aspect * Math.tan(FOV / 2));
@@ -291,26 +328,6 @@ function update() {
 
         last_chunks = new Uint16Array(chunk_coords);
     }
-
-    //find the 4 chunks surrounding player
-    const active_chunks = getSurroundingChunks(camera.position);
-    const player_pos = vec3.clone(camera.position);
-    for (const chunk of active_chunks) {
-        const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
-        for (const e of entities) {
-            if (e.type !== "chest") continue;
-            const chest_pos = e.position;
-            const dist = vec3.squaredDistance(player_pos, chest_pos);
-            if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
-                chunk_entities.remove(e.id);
-                game_info.score += 100;
-            }
-        }
-    }
-
-    drawScene();
-    drawUI();
-    requestAnimationFrame(update);
 }
 
 function drawScene() {
@@ -345,41 +362,52 @@ function drawScene() {
 let backup_gl_state: ImGui_Impl.GLBackupState | undefined = undefined;
 
 function drawUI(): void {
-    //imgui render
-    ImGui_Impl.NewFrame(0);
-    ImGui.NewFrame();
-    const frame_width = 225;
-    const frame_height = 150;
-    ImGui.SetNextWindowPos(new ImGui.ImVec2(gl.drawingBufferWidth - frame_width, ImGui.Cond.Always));
-    ImGui.SetNextWindowSize(new ImGui.ImVec2(frame_width, frame_height), ImGui.Cond.Always);
-    ImGui.SetNextWindowSizeConstraints(
-        new ImGui.ImVec2(frame_width, frame_height),
-        new ImGui.ImVec2(frame_width, frame_height)
-    );
+    const window_flags =
+        ImGui.ImGuiWindowFlags.AlwaysAutoResize |
+        ImGui.ImGuiWindowFlags.NoResize |
+        ImGui.ImGuiWindowFlags.NoMove |
+        ImGui.ImGuiWindowFlags.NoBackground;
     const style = ImGui.GetStyle();
     style.WindowBorderSize = 0.0;
 
+    //imgui render
+    ImGui_Impl.NewFrame(0);
+    ImGui.NewFrame();
     {
-        ImGui.Begin(
-            "Game Info",
-            null,
-            ImGui.ImGuiWindowFlags.AlwaysAutoResize |
-                ImGui.ImGuiWindowFlags.NoResize |
-                ImGui.ImGuiWindowFlags.NoMove |
-                ImGui.ImGuiWindowFlags.NoBackground
-        );
-        let { x, y, z } = {
-            x: camera.position[0].toFixed(2),
-            y: camera.position[1].toFixed(2),
-            z: camera.position[2].toFixed(2),
-        };
-        ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
-        ImGui.Text(`pos: ${x}, ${y}, ${z} `);
-        ImGui.Text(`score: ${game_info.score} `);
-        ImGui.PopStyleColor();
-        ImGui.End();
-    }
+        const frame_width = 225;
+        ImGui.SetNextWindowPos(new ImGui.ImVec2(gl.drawingBufferWidth - frame_width, 0), ImGui.Cond.Always);
+        ImGui.SetNextWindowSize(new ImGui.ImVec2(frame_width, 0), ImGui.Cond.Always);
 
+        {
+            ImGui.Begin("Game Info", null, window_flags);
+            let { x, y, z } = {
+                x: camera.position[0].toFixed(2),
+                y: camera.position[1].toFixed(2),
+                z: camera.position[2].toFixed(2),
+            };
+            ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
+            ImGui.Text(`pos: ${x}, ${y}, ${z} `);
+            ImGui.Text(`score: ${game_info.score} `);
+            ImGui.PopStyleColor();
+            ImGui.End();
+        }
+    }
+    {
+        ImGui.SetNextWindowPos(new ImGui.ImVec2(0, 0), ImGui.Cond.Always);
+        {
+            ImGui.Begin("Frame Info", null, window_flags);
+            ImGui.PushStyleColor(ImGui.ImGuiCol.Text, new ImGui.ImColor(255, 225, 0, 255));
+
+            let fps_text = `FPS ${Math.round(1000 / rolling_delta.avg())}`;
+
+            fps_text = fps_text.padEnd(9, " ");
+            fps_text += `${rolling_delta.avg().toFixed(2)}ms`;
+            ImGui.Text(fps_text);
+            ImGui.Text(`Updates/s: ${Math.round(1000 / UPDATE_RATE)}`);
+            ImGui.PopStyleColor();
+            ImGui.End();
+        }
+    }
     ImGui.EndFrame();
     ImGui.Render();
 
@@ -389,8 +417,6 @@ function drawUI(): void {
 
 const light_uniforms = new Map();
 function setupLights() {
-    if (!light_changed) return;
-    light_changed = false;
     if (light_toggle) {
         const ambient_intensity = 0.02;
         const ambient_color = [
@@ -424,33 +450,32 @@ function setupLights() {
 }
 
 document.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.key === "l") {
-        light_toggle = !light_toggle;
-        light_changed = true;
-    }
+    if (e.key === "l") light_toggle = !light_toggle;
 });
 
 function getSurroundingChunks(pos: vec3): [number, number][] {
     const result: [number, number][] = [];
+
     //bottom left
-    result.push([
-        Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
-        Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
-    ]);
-    result.push([
-        Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
-        Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
-    ]);
-    result.push([
-        Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
-        Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
-    ]);
+    let x = Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
+    let z = Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
+    //assert in bounds
+    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
+    //bottom right
+    x = Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
+    z = Math.floor((pos[2] - Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
+    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
+
+    //top left
+    x = Math.floor((pos[0] - Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
+    z = Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
+    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
 
     //top right
-    result.push([
-        Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x),
-        Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x),
-    ]);
+    x = Math.floor((pos[0] + Height_Opt.chunk_width_x / 2) / Height_Opt.chunk_width_x);
+    z = Math.floor((pos[2] + Height_Opt.chunk_width_z / 2) / Height_Opt.chunk_width_x);
+    if (x < Height_Opt.x_chunks && x >= 0 && z < Height_Opt.z_chunks && z >= 0) result.push([x, z]);
+
     return result;
 }
 

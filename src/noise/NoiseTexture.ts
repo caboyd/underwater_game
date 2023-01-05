@@ -23,7 +23,7 @@ export class NoiseTexture implements HeightMapOptions {
     height_map: HeightMap;
     data: Float32Array;
     components: number = 2;
-    max_cells_drawn_per_frame = 80;
+    max_cells_drawn_per_frame = 30;
     cells_drawn_this_frame = 0;
     chunk_coords: Uint16Array;
 
@@ -101,7 +101,7 @@ export class NoiseTexture implements HeightMapOptions {
                 ) {
                     this.chunk_coords[chunk_coords_size++] = x;
                     this.chunk_coords[chunk_coords_size++] = z;
-                    if (this.drawTexture(x, z)) {
+                    if (this.fillHeightMapData(x, z)) {
                         did_draw = true;
                         this.cells_drawn_this_frame++;
                     }
@@ -131,7 +131,7 @@ export class NoiseTexture implements HeightMapOptions {
                     this.chunk_coords[chunk_coords_size++] = x;
                     this.chunk_coords[chunk_coords_size++] = z;
 
-                    if (this.drawTexture(x, z)) {
+                    if (this.fillHeightMapData(x, z)) {
                         did_draw = true;
                         this.cells_drawn_this_frame++;
                     }
@@ -144,7 +144,7 @@ export class NoiseTexture implements HeightMapOptions {
         return this.chunk_coords.subarray(0, chunk_coords_size);
     }
 
-    public drawTexture(x: number, z: number): boolean {
+    public fillHeightMapData(x: number, z: number): boolean {
         if (this.generated_cells[z][x] === true) return false;
 
         this.generated_cells[z][x] = true;
