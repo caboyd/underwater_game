@@ -6,6 +6,7 @@ import { ChunkEntities } from "./ChunkEntities";
 export class Chests {
     instanced_mesh!: IWO.InstancedMesh;
     radius: number = 1.5;
+    type = "chest";
 
     private constructor() {}
 
@@ -36,7 +37,7 @@ export class Chests {
         const center = vec3.add(vec3.create(), [x, y, z], height_map.getNormalAtFloor(x, z));
         mat4.targetTo(mat, [x, y, z], center, [0, 0, 1]);
         mat4.rotateX(mat, mat, Math.PI / 2);
-        chunked_entities.insert(x, z, { type: "chest", position: pos, instance: mat4.clone(mat) });
+        chunked_entities.insert(x, z, { type: c.type, position: pos, instance: mat4.clone(mat) });
 
         for (let i = 0; i < num_chests - 1; i++) {
             for (let j = 0; j < 25000; j++) {
@@ -53,7 +54,7 @@ export class Chests {
                 if (y === floor) mat4.rotateX(mat, mat, Math.PI / 2);
                 else mat4.rotateX(mat, mat, -Math.PI / 2);
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
-                chunked_entities.insert(x, z, { type: "chest", position: pos, instance: mat4.clone(mat) });
+                chunked_entities.insert(x, z, { type: c.type, position: pos, instance: mat4.clone(mat) });
                 break;
             }
         }
@@ -67,7 +68,7 @@ export class Chests {
             const z = active_chunks[i + 1];
             const entities = chunked_entities.getChunkEntities(x, z);
             for (const e of entities) {
-                if (e.type !== "chest") continue;
+                if (e.type !== this.type) continue;
                 this.instanced_mesh.addInstance(e.instance);
             }
         }

@@ -48,10 +48,9 @@ let height_map: HeightMap;
 let noise_tex: NoiseTexture;
 let ceiling_chunk: IWO.MeshInstance;
 let floor_chunk: IWO.MeshInstance;
-let grid: IWO.MeshInstance;
+let active_chunks: Uint16Array;
 let chests: Chests;
 let crabs: Crabs;
-let netted_crab_entity_ids: number[] = [];
 let net_manager: NetManager;
 let rocks_array: Rocks[] = [];
 let doodads_array: Doodads[] = [];
@@ -131,7 +130,6 @@ async function initScene() {
     renderer.addShaderVariantUniform(HeightMapShaderSource, "u_light_count", 1);
 
     noise_tex = new NoiseTexture(gl, Height_Opt);
-
     height_map = new HeightMap(Height_Opt);
     height_map.material.albedo_texture = IWO.TextureLoader.load(gl, "floor.png", root_url + "images/", {
         flip: true,
@@ -167,18 +165,12 @@ async function initScene() {
     const f_chunk_mesh = new IWO.Mesh(gl, f_chunk);
     floor_chunk = new IWO.MeshInstance(f_chunk_mesh, floor_mat);
 
-    const grid_geom = new IWO.PlaneGeometry(100, 100);
-    const grid_mat = new IWO.GridMaterial();
-    const grid_mesh = new IWO.Mesh(gl, grid_geom);
-    grid = new IWO.MeshInstance(grid_mesh, grid_mat);
-    mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
-
+    //Nets
     const geom = new IWO.SphereGeometry(0.45, 8, 3, undefined, undefined, Math.PI / 1.5, undefined);
     const line_geom = IWO.LineGeometry.fromGeometry(geom);
     const line_mesh = new IWO.Mesh(gl, line_geom);
     const line_mat = new IWO.LineMaterial([gl.drawingBufferWidth, gl.drawingBufferHeight], [1, 1, 1, 1], 4, true);
     const line_mi = new IWO.MeshInstance(line_mesh, line_mat);
-
     net_manager = new NetManager(line_mi);
 
     chunk_entities = new ChunkEntities(Height_Opt);
@@ -186,12 +178,7 @@ async function initScene() {
     const rocks = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
     await Promise.all(
         rocks.map((letter) =>
-            initRocks(
-                `rock${letter}.obj`,
-                "iwo-assets/underwater_game/obj/rocks/",
-                `rock_${letter}`,
-                2000 / rocks.length
-            )
+            initRocks(`rock${letter}.obj`, root_url + "obj/rocks/", `rock_${letter}`, 2000 / rocks.length)
         )
     );
 
@@ -203,7 +190,7 @@ async function initScene() {
         chunk_entities,
         getFloorCeilNormalWithRocks,
         "crab",
-        await objInstancedMesh("crab.obj", "iwo-assets/underwater_game/obj/doodads/", [0, 0.02, 0], [0.06, 0.06, 0.06]),
+        await objInstancedMesh("crab.obj", root_url + "obj/doodads/", [0, 0.02, 0], [0.06, 0.06, 0.06]),
         2000
     );
 
@@ -337,14 +324,14 @@ function update(delta_ms: number) {
     for (const chunk of active_chunks) {
         const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
         for (const e of entities) {
-            if (e.type == "chest") {
+            if (e.type == chests.type) {
                 const chest_pos = e.position;
                 const dist = vec3.squaredDistance(player_pos, chest_pos);
                 if (dist < PLAYER_SIZE * PLAYER_SIZE + chests.radius * chests.radius) {
                     chunk_entities.remove(e.id);
                     game_info.score += 100;
                 }
-            } else if (e.type == "crab") {
+            } else if (e.type == crabs.type) {
                 //collide nets with crabs
                 const crab_pos = e.position;
                 for (const net of net_manager.nets) {
@@ -391,22 +378,22 @@ function updateVisibleChunks() {
     //cell range increased when looking orthogonal to up/down
     const cell_range = Math.ceil(Math.pow(1.0 - down_angle, 1 / 3) * max_cells_range);
 
-    const chunk_coords = noise_tex.generateCellsInView(gl, camera.position, cam_forward, fovx, cell_range, cell_radius);
+    active_chunks = noise_tex.generateCellsInView(gl, camera.position, cam_forward, fovx, cell_range, cell_radius);
 
-    if (!arraysEqual(chunk_coords, last_chunks)) {
-        ceiling_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-        ceiling_chunk.mesh.instances = chunk_coords.length / 2;
-        floor_chunk.mesh.vertexBufferSubData(gl, 1, chunk_coords);
-        floor_chunk.mesh.instances = chunk_coords.length / 2;
+    if (!arraysEqual(active_chunks, last_chunks)) {
+        ceiling_chunk.mesh.vertexBufferSubData(gl, 1, active_chunks);
+        ceiling_chunk.mesh.instances = active_chunks.length / 2;
+        floor_chunk.mesh.vertexBufferSubData(gl, 1, active_chunks);
+        floor_chunk.mesh.instances = active_chunks.length / 2;
 
-        chests.updateVisibleInstances(chunk_coords, chunk_entities);
-        crabs.updateVisibleInstances(chunk_coords, chunk_entities);
-        for (const rocks of rocks_array) rocks.updateVisibleInstances(chunk_coords, chunk_entities);
+        chests.updateVisibleInstances(active_chunks, chunk_entities);
+        crabs.updateVisibleInstances(active_chunks, chunk_entities);
+        for (const rocks of rocks_array) rocks.updateVisibleInstances(active_chunks, chunk_entities);
         for (const doodads of doodads_array) {
-            if (doodads.id.includes("3d")) doodads.updateVisibleInstances(chunk_coords, chunk_entities);
+            if (doodads.type.includes("3d")) doodads.updateVisibleInstances(active_chunks, chunk_entities);
         }
 
-        last_chunks = new Uint16Array(chunk_coords);
+        last_chunks = new Uint16Array(active_chunks);
     }
 }
 

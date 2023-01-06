@@ -25,7 +25,7 @@ export class Rocks extends InstancedChunkEntity {
 
         mat4.translate(mat, mat, pos);
         mat4.scale(mat, mat, [radius, radius, radius]);
-        chunked_entities.insert(x, z, { type: this.id, position: pos, instance: mat, radius: radius });
+        chunked_entities.insert(x, z, { type: this.type, position: pos, instance: mat, radius: radius });
 
         for (let i = 0; i < count - 1; i++) {
             for (let j = 0; j < 25000; j++) {
@@ -41,7 +41,7 @@ export class Rocks extends InstancedChunkEntity {
                 mat4.rotateX(mat, mat, Math.PI * Math.random());
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
 
-                chunked_entities.insert(x, z, { type: this.id, position: pos, instance: mat, radius: radius });
+                chunked_entities.insert(x, z, { type: this.type, position: pos, instance: mat, radius: radius });
                 break;
             }
         }

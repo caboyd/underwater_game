@@ -4,10 +4,10 @@ import { ChunkEntities } from "./ChunkEntities";
 
 export class InstancedChunkEntity {
     instanced_mesh: IWO.InstancedMesh;
-    id: string;
+    type: string;
 
     constructor(id: string, instanced_mesh: IWO.InstancedMesh) {
-        this.id = id;
+        this.type = id;
         this.instanced_mesh = instanced_mesh;
     }
 
@@ -20,7 +20,7 @@ export class InstancedChunkEntity {
             const z = active_chunks[i + 1];
             const entities = chunk_entities.getChunkEntities(x, z);
             for (const e of entities) {
-                if (!e.type.includes(this.id)) continue;
+                if (!e.type.includes(this.type)) continue;
 
                 //reuse existing instances
                 if (index < len) {

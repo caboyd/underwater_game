@@ -9,11 +9,11 @@ export class Crabs extends InstancedChunkEntity {
         height_map: HeightMap,
         chunked_entities: ChunkEntities,
         floor_func: (pos: vec3) => { floor: number; normal: vec3 },
-        id: string,
+        type: string,
         instanced_mesh: IWO.InstancedMesh,
         count: number
     ) {
-        super(id, instanced_mesh);
+        super(type, instanced_mesh);
 
         const [w, h] = [height_map.getWidth(), height_map.getHeight()];
         const mat = mat4.create();
@@ -39,7 +39,7 @@ export class Crabs extends InstancedChunkEntity {
                 mat4.rotateX(mat, mat, -Math.PI / 2);
 
                 //mat4.rotateY(mat, mat, Math.PI * Math.random());
-                chunked_entities.insert(x, z, { type: "crab", position: pos, instance: mat4.clone(mat) });
+                chunked_entities.insert(x, z, { type: this.type, position: pos, instance: mat4.clone(mat) });
                 break;
             }
         }

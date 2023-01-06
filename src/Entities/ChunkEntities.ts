@@ -6,6 +6,8 @@ export type Entity = {
     type: "chest" | "rock" | "crab" | "crab_netted" | string;
     position: vec3;
     instance: mat4;
+    forward?: vec3;
+    velocity?: vec3;
     radius?: number;
 };
 

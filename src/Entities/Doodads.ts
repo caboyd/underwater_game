@@ -36,7 +36,7 @@ export class Doodads extends InstancedChunkEntity {
                     mat4.targetTo(mat, pos, center, [0, 0, 1]);
                     mat4.rotateX(mat, mat, -Math.PI / 2);
                 }
-                chunked_entities.insert(x, z, { type: this.id, position: pos, instance: mat });
+                chunked_entities.insert(x, z, { type: this.type, position: pos, instance: mat });
                 break;
             }
         }

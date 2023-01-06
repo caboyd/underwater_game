@@ -18,8 +18,10 @@ class Net {
 
     constructor(pos: vec3, forward: vec3) {
         this.position = vec3.clone(pos);
-        vec3.add(this.position, pos, forward);
         this.forward = vec3.clone(forward);
+        vec3.scale(this.forward, this.forward, 0.25);
+        vec3.add(this.position, pos, this.forward);
+        vec3.normalize(this.forward, this.forward);
         vec3.scale(this.velocity, this.forward, SPEED);
     }
 
