@@ -85,7 +85,8 @@ export class Player extends IWO.FPSControl {
         vec3.scale(temp_vel, this.velocity, delta_s);
         vec3.add(this.camera.position, this.camera.position, temp_vel);
 
-        const { floor, ceil, normal } = floorceilnormal_func(this.camera.position, 0.1);
+        const { floor, ceil, normal } = floorceilnormal_func(this.camera.position, 0.0);
+       
 
         //apply collision
         if (ceil - floor < PLAYER_SIZE * 2) {

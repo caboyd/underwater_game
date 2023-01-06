@@ -29,7 +29,7 @@ export class Crabs extends InstancedChunkEntity {
                 const y = height_map.validFloorPosition(x, z, 1);
                 if (y === false) continue;
                 const { floor, normal } = floor_func([x, y, z]);
-                this.addCrab(chunked_entities, floor, normal, x, y, z);
+                this.addCrab(chunked_entities, normal, x, y, z);
                 break;
             }
         }
@@ -37,7 +37,6 @@ export class Crabs extends InstancedChunkEntity {
 
     public addCrab(
         chunked_entities: ChunkEntities,
-        floor: number,
         normal: vec3,
         x: number,
         y: number,
@@ -47,20 +46,24 @@ export class Crabs extends InstancedChunkEntity {
     ) {
         vec3.normalize(velocity, velocity);
         const mat = mat4.create();
-        const pos = vec3.fromValues(x, floor, z);
+        const tmp_pos = vec3.fromValues(x, y + 0.05, z);
+
         //push crabs out of floor
+        //vec3.add(pos, pos, vec3.scale(tmp, normal, 0.04));
+        //pos[1] += 0.07;
 
-        vec3.add(pos, pos, vec3.scale(tmp, normal, 0.01));
-        pos[1] += 0.07;
+        let right = vec3.fromValues(1, 0, 0);
+        if (vec3.len(velocity) !== 0) vec3.cross(right, velocity, normal);
+        else vec3.cross(right, right, normal);
+        
+        const target = vec3.add(tmp, tmp_pos, right);
+        mat4.targetTo(mat, tmp_pos, target, normal);
 
-        const right = vec3.cross(vec3.create(), velocity, normal);
-        const target = vec3.add(tmp, pos, right);
-        mat4.targetTo(mat, pos, target, normal);
-
+        //mat4.translate(mat, mat, vec3.scale(normal, normal, 0.1));
 
         chunked_entities.insert(x, z, {
             type: this.type,
-            position: pos,
+            position: vec3.fromValues(x, y, z),
             instance: mat,
             velocity: vec3.clone(velocity),
         });
