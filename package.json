@@ -14,7 +14,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "gl-matrix": "^3.4.0",
+    "gl-matrix": "^3.4.3",
     "iwo-renderer": "^0.7.19"
   },
   "devDependencies": {

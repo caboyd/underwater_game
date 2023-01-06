@@ -1,4 +1,4 @@
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, quat, vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
 import { HeightMap } from "src/heightmap/HeightMap";
 import { ChunkEntities } from "./ChunkEntities";
@@ -47,12 +47,13 @@ export class Chests {
                 if (y === false) continue;
                 const { floor: floor, normal: normal } = floor_func([x, y, z]);
                 mat4.identity(mat);
+
                 //make treasure chest normal match floor
-                const pos = vec3.fromValues(x, floor, z);
-                const center = vec3.add(vec3.create(), pos, normal);
-                mat4.targetTo(mat, pos, center, [0, 0, 1]);
-                mat4.rotateX(mat, mat, -Math.PI / 2);
-                mat4.rotateY(mat, mat, Math.PI * Math.random());
+                const pos = vec3.fromValues(x, floor - 0.05, z);
+                const q = quat.rotationTo(quat.create(), [0, 0, -1], normal);
+                quat.rotateX(q, q, -Math.PI / 2);
+                mat4.fromRotationTranslation(mat, q, pos);
+
                 chunked_entities.insert(x, z, { type: c.type, position: pos, instance: mat4.clone(mat) });
                 break;
             }
