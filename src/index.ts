@@ -5,6 +5,7 @@ import * as IWO from "iwo-renderer";
 import { ChunkEntities } from "src/Entities/ChunkEntities";
 import { Crabs } from "src/Entities/Crabs";
 import { Doodads } from "src/Entities/Doodads";
+import { NetManager } from "src/Entities/Net";
 import { Rocks } from "src/Entities/Rocks";
 import { HeightMapOptions } from "src/heightmap/HeightMap";
 import { HeightMapChunkInstanced, HeightMapChunkInstancedOptions } from "src/heightmap/HeightMapChunkInstanced";
@@ -48,6 +49,7 @@ let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
 let crabs: Crabs;
+let net_manager: NetManager;
 let rocks_array: Rocks[] = [];
 let doodads_array: Doodads[] = [];
 let chunk_entities: ChunkEntities;
@@ -67,7 +69,7 @@ class Static<T> {
 const gui = {
     show_frame_info: new Static<boolean>(true),
     show_game_info: new Static<boolean>(true),
-    show_help_info: new Static<boolean>(false),
+    show_help_info: new Static<boolean>(true),
 };
 
 const game_info = {
@@ -168,6 +170,14 @@ async function initScene() {
     grid = new IWO.MeshInstance(grid_mesh, grid_mat);
     mat4.translate(grid.model_matrix, grid.model_matrix, [0, -0.01, 0]);
 
+    const geom = new IWO.SphereGeometry(0.45, 8, 3, undefined, undefined, Math.PI / 1.5, undefined);
+    const line_geom = IWO.LineGeometry.fromGeometry(geom);
+    const line_mesh = new IWO.Mesh(gl, line_geom);
+    const line_mat = new IWO.LineMaterial([gl.drawingBufferWidth, gl.drawingBufferHeight], [1, 1, 1, 1], 4, true);
+    const line_mi = new IWO.MeshInstance(line_mesh, line_mat);
+
+    net_manager = new NetManager(line_mi);
+
     chunk_entities = new ChunkEntities(Height_Opt);
 
     const rocks = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
@@ -232,6 +242,17 @@ async function initScene() {
         return im;
     }
 
+    async function objMeshInstance(file_name: string, base_url: string, translate?: vec3, scale?: vec3) {
+        const data = await IWO.ObjLoader.promise(file_name, base_url, {
+            flip_image_y: true,
+        });
+        const mesh = new IWO.Mesh(gl, data.objects[0].geometry);
+        const mesh_i = new IWO.MeshInstance(mesh, data.materials);
+        if (translate) mat4.translate(mesh_i.model_matrix, mesh_i.model_matrix, translate);
+        if (scale) mat4.scale(mesh_i.model_matrix, mesh_i.model_matrix, scale);
+        return mesh_i;
+    }
+
     async function initRocks(file_name: string, base_url: string, object_name: string, count: number) {
         const im = await objInstancedMesh(file_name, base_url);
         rocks_array.push(new Rocks(height_map, chunk_entities, object_name, im, count));
@@ -280,14 +301,16 @@ function requestUpdate() {
     let delta = now - last_now;
     last_now = now;
     delta = Math.min(delta, 250);
+    rolling_delta.add(delta);
     physics_delta += delta;
     if (physics_delta - UPDATE_RATE > 0) {
         do {
-            update(UPDATE_RATE);
+            //pasued when help info open
+            if (!gui.show_help_info.value) update(UPDATE_RATE);
+
             physics_delta -= UPDATE_RATE;
         } while (physics_delta - UPDATE_RATE > 0);
     }
-    rolling_delta.add(delta);
 
     updateVisibleChunks();
     drawScene();
@@ -308,6 +331,7 @@ function update(delta_ms: number) {
     //update player
 
     player.update2(delta_ms, getFloorCeilNormalWithRocks);
+    net_manager.update(delta_ms, getFloorCeilNormalWithRocks);
 
     //find the 4 chunks surrounding player
     const active_chunks = getSurroundingChunks(camera.position);
@@ -375,9 +399,11 @@ function drawScene() {
     ceiling_chunk.render(renderer, v, p);
     floor_chunk.render(renderer, v, p);
 
+    for (const rocks of rocks_array) rocks.instanced_mesh.render(renderer, v, p);
+
     chests.instanced_mesh.render(renderer, v, p);
     crabs.instanced_mesh.render(renderer, v, p);
-    for (const rocks of rocks_array) rocks.instanced_mesh.render(renderer, v, p);
+    net_manager.render(renderer, v, p);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -416,7 +442,7 @@ function drawUI(): void {
             if (ImGui.BeginMenu("Menu", true)) {
                 ImGui.MenuItem("Frame Info", null, gui.show_frame_info.access);
                 ImGui.MenuItem("Game Info", null, gui.show_game_info.access);
-                ImGui.MenuItem("How To Play", null, gui.show_help_info.access);
+                ImGui.MenuItem("Pause / Help", null, gui.show_help_info.access);
                 ImGui.EndMenu();
             }
             ImGui.EndMenuBar();
@@ -472,15 +498,21 @@ function drawUI(): void {
         );
         ImGui.SetNextWindowSize(new ImGui.ImVec2(frame_width, frame_width), ImGui.Cond.FirstUseEver);
         {
-            ImGui.Begin("How To Play", gui.show_help_info.access, ImGui.WindowFlags.AlwaysAutoResize);
+            ImGui.Begin("Paused", gui.show_help_info.access, ImGui.WindowFlags.AlwaysAutoResize);
 
-            ImGui.TextWrapped("Move around and collect treasture chests to increase the score.");
+            ImGui.Text("How to Play:");
+            ImGui.TextWrapped(
+                `Move around and collect treasture chests to increase the score by 100.
+Shoot nets at crabs then collect them to increase score by 10.\n
+Close window to unpause (ESC)`
+            );
             ImGui.Separator();
             ImGui.Text("Controls");
             {
                 ImGui.Indent(5);
                 if (ImGui.BeginTable("Controls Table", 2, ImGui.TableFlags.BordersInner | ImGui.TableFlags.Borders)) {
                     TableRowTwoColumn("Look Around", "Hold Left Click");
+                    TableRowTwoColumn("Shoot Net", "F");
                     TableRowTwoColumn("Strafe Left", "A");
                     TableRowTwoColumn("Strafe Right", "D");
                     TableRowTwoColumn("Forward", "W");
@@ -545,7 +577,13 @@ function setupLights() {
 }
 
 document.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.key === "l") light_toggle = !light_toggle;
+    const k = e.key.toLocaleLowerCase();
+    if (k === "l") light_toggle = !light_toggle;
+    if (k === "f") net_manager.addNet(camera.position, camera.getForward());
+    if (k === "escape") {
+        gui.show_help_info.value = !gui.show_help_info.value;
+        player.resetMouse();
+    }
 });
 
 function getSurroundingChunks(pos: vec3): [number, number][] {

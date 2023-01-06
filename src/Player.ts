@@ -2,9 +2,9 @@ import { vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
 
 const DRAG_FACTOR = 0.2;
-const ACCELERATION = 8 / 30;
+const ACCELERATION = 8;
 const MAX_VEL = 8;
-const GRAVITY = 5 / 30;
+const GRAVITY = 5;
 const PLAYER_SIZE = 0.75;
 const temp_vel = vec3.create();
 
@@ -19,12 +19,17 @@ export class Player extends IWO.FPSControl {
         throw "dont call player update. call update2";
     }
 
+    resetMouse() {
+        this.mouse_x_total = 0;
+        this.mouse_y_total = 0;
+    }
+
     update2(
         delta_ms: number,
-        floorceilnormal_fuc: (pos: vec3, collision_radius: number) => { floor: number; ceil: number; normal: vec3 }
+        floorceilnormal_func: (pos: vec3, collision_radius: number) => { floor: number; ceil: number; normal: vec3 }
     ) {
         this.processMouseMovement(delta_ms);
-        this.processKeyboard2(delta_ms, floorceilnormal_fuc);
+        this.processKeyboard2(delta_ms, floorceilnormal_func);
     }
 
     protected processKeyboard2(
@@ -77,7 +82,8 @@ export class Player extends IWO.FPSControl {
         // }
 
         //apply velocity
-        vec3.add(this.camera.position, this.camera.position, this.velocity);
+        vec3.scale(temp_vel, this.velocity, delta_s);
+        vec3.add(this.camera.position, this.camera.position, temp_vel);
 
         const { floor, ceil, normal } = floorceilnormal_func(this.camera.position, 0.1);
 
