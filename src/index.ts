@@ -71,7 +71,7 @@ class Static<T> {
 const gui = {
     show_frame_info: new Static<boolean>(true),
     show_game_info: new Static<boolean>(true),
-    show_help_info: new Static<boolean>(true),
+    show_help_info: new Static<boolean>(false),
 };
 
 const game_info = {
@@ -377,30 +377,16 @@ function update(delta_ms: number) {
                 let { floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position);
 
                 //attemp to move crab, turning if there is no room
-                if (ceil - floor < CRAB_SIZE) {
-                    vec3.scale(tmp_vel, e.velocity, (delta_s * 2) / 3);
-                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], Math.PI / 6);
-                    vec3.add(e.position, e.position, tmp_vel);
+                //+-30 deg at 2/3 scale, +-60deg at 1/3 scale
+                const nums = [2, -2, 1, -1];
+                for (const num of nums) {
+                    vec3.scale(tmp_vel, e.velocity, (delta_s * Math.abs(num)) / 3);
+                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], Math.PI / (3 * num));
+                    vec3.add(e.position, last_pos, tmp_vel);
                     ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                    if (ceil - floor >= CRAB_SIZE) break;
                 }
-                if (ceil - floor < CRAB_SIZE) {
-                    vec3.scale(tmp_vel, e.velocity, (delta_s * 2) / 3);
-                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], -Math.PI / 6);
-                    vec3.add(e.position, e.position, tmp_vel);
-                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
-                }
-                if (ceil - floor < CRAB_SIZE) {
-                    vec3.scale(tmp_vel, e.velocity, (delta_s * 1) / 3);
-                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], Math.PI / 3);
-                    vec3.add(e.position, e.position, tmp_vel);
-                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
-                }
-                if (ceil - floor < CRAB_SIZE) {
-                    vec3.scale(tmp_vel, e.velocity, (delta_s * 1) / 3);
-                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], -Math.PI / 3);
-                    vec3.add(e.position, e.position, tmp_vel);
-                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
-                }
+
                 if (ceil - floor < CRAB_SIZE) {
                     vec3.set(e.velocity, 0, 0, 0);
                     vec3.copy(e.position, last_pos);
@@ -410,7 +396,15 @@ function update(delta_ms: number) {
                 e.position[1] = floor;
 
                 chunk_entities.remove(e.id);
-                crabs.addCrab(chunk_entities, normal, e.position[0], e.position[1], e.position[2], e.velocity);
+                crabs.addCrab(
+                    chunk_entities,
+                    normal,
+                    e.position[0],
+                    e.position[1],
+                    e.position[2],
+                    e.velocity,
+                    e.forward
+                );
             }
         }
     }

@@ -50,8 +50,10 @@ export class Chests {
 
                 //make treasure chest normal match floor
                 const pos = vec3.fromValues(x, floor - 0.05, z);
-                const q = quat.rotationTo(quat.create(), [0, 0, -1], normal);
-                quat.rotateX(q, q, -Math.PI / 2);
+                const q = quat.rotationTo(quat.create(), [0, 0, 1], normal);
+                // if (normal[0] < 0) quat.rotationTo(quat.create(), [0, 0, -1], normal);
+                quat.rotateX(q, q, Math.PI / 2);
+                quat.rotateY(q, q, Math.random() * Math.PI);
                 mat4.fromRotationTranslation(mat, q, pos);
 
                 chunked_entities.insert(x, z, { type: c.type, position: pos, instance: mat4.clone(mat) });

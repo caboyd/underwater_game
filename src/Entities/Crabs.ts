@@ -1,4 +1,4 @@
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, quat, vec3 } from "gl-matrix";
 import * as IWO from "iwo-renderer";
 import { HeightMap } from "../heightmap/HeightMap";
 import { ChunkEntities } from "./ChunkEntities";
@@ -41,31 +41,33 @@ export class Crabs extends InstancedChunkEntity {
         x: number,
         y: number,
         z: number,
-        velocity: vec3 = vec3.fromValues(Math.random() * 2 - 1, 0, Math.random() * 2 - 1)
+        velocity: vec3 = vec3.fromValues(Math.random() * 2 - 1, 0, Math.random() * 2 - 1),
+        forward: vec3 = vec3.fromValues(1, 0, 0)
         //velocity: vec3 = vec3.fromValues(0.7, 0, -0.7)
     ) {
         vec3.normalize(velocity, velocity);
         const mat = mat4.create();
-        const tmp_pos = vec3.fromValues(x, y + 0.05, z);
+        const pos = vec3.fromValues(x, y + 0.05, z);
 
         //push crabs out of floor
         //vec3.add(pos, pos, vec3.scale(tmp, normal, 0.04));
         //pos[1] += 0.07;
 
         let right = vec3.fromValues(1, 0, 0);
-        if (vec3.len(velocity) !== 0) vec3.cross(right, velocity, normal);
-        else vec3.cross(right, right, normal);
-        
-        const target = vec3.add(tmp, tmp_pos, right);
-        mat4.targetTo(mat, tmp_pos, target, normal);
+        if (vec3.len(velocity) !== 0) vec3.normalize(forward, velocity);
+        vec3.cross(right, forward, normal);
+
+        const target = vec3.add(tmp, pos, right);
+        mat4.targetTo(mat, pos, target, normal);
 
         //mat4.translate(mat, mat, vec3.scale(normal, normal, 0.1));
 
         chunked_entities.insert(x, z, {
             type: this.type,
-            position: vec3.fromValues(x, y, z),
+            position: pos,
             instance: mat,
             velocity: vec3.clone(velocity),
+            forward: vec3.clone(forward),
         });
     }
 }
