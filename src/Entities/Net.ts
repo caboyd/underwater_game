@@ -13,7 +13,7 @@ class Net {
     forward: vec3;
     normal: vec3 = vec3.fromValues(0, 1, 0);
     velocity: vec3 = vec3.create();
-    locked: boolean = false;
+    has_crab: boolean = false;
     crab_entity_id = -1;
 
     constructor(pos: vec3, forward: vec3) {
@@ -31,14 +31,14 @@ class Net {
 
         vec3.sub(this.position, this.position, this.normal);
         vec3.normalize(this.normal, this.normal);
-        this.locked = true;
+        this.has_crab = true;
     }
 
     update(
         delta_ms: number,
         floorceilnormal_func: (pos: vec3, collision_radius?: number) => { floor: number; ceil: number; normal: vec3 }
     ): boolean {
-        if (this.locked) return true;
+        if (this.has_crab) return true;
 
         const delta_s = delta_ms / 1000;
 

@@ -348,6 +348,7 @@ function update(delta_ms: number) {
                 //collide nets with crabs
                 const crab_pos = e.position;
                 for (const net of net_manager.nets) {
+                    if (net.has_crab) continue;
                     const dist = vec3.squaredDistance(net.position, crab_pos);
                     if (dist < CRAB_SIZE * CRAB_SIZE + NET_SIZE * NET_SIZE) {
                         e.type = "crab_netted";
