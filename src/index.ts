@@ -38,6 +38,8 @@ const Height_Opt: HeightMapOptions = {
 const cPos: vec3 = vec3.fromValues((Height_Opt.x_chunks * 6.25) / 2, -20, (Height_Opt.z_chunks * 6.25) / 2);
 let camera: IWO.Camera;
 const PLAYER_SIZE = 0.5;
+const CRAB_SIZE = 0.3;
+const NET_SIZE = 0.5;
 
 let renderer: IWO.Renderer;
 let player: Player;
@@ -49,6 +51,7 @@ let floor_chunk: IWO.MeshInstance;
 let grid: IWO.MeshInstance;
 let chests: Chests;
 let crabs: Crabs;
+let netted_crab_entity_ids: number[] = [];
 let net_manager: NetManager;
 let rocks_array: Rocks[] = [];
 let doodads_array: Doodads[] = [];
@@ -323,12 +326,7 @@ function update(delta_ms: number) {
     let io = ImGui.GetIO();
     player.mouse_active = !io.WantCaptureMouse;
 
-    setupLights();
-
-    let ceil = height_map.getFloorAndCeiling(camera.position[0], camera.position[2]).ceil;
-    let floor = getFloorCeilNormalWithRocks(camera.position).floor;
-
-    //update player
+    updateLights();
 
     player.update2(delta_ms, getFloorCeilNormalWithRocks);
     net_manager.update(delta_ms, getFloorCeilNormalWithRocks);
@@ -339,12 +337,37 @@ function update(delta_ms: number) {
     for (const chunk of active_chunks) {
         const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
         for (const e of entities) {
-            if (e.type !== "chest") continue;
-            const chest_pos = e.position;
-            const dist = vec3.squaredDistance(player_pos, chest_pos);
-            if (dist < PLAYER_SIZE + chests.radius * PLAYER_SIZE + chests.radius) {
-                chunk_entities.remove(e.id);
-                game_info.score += 100;
+            if (e.type == "chest") {
+                const chest_pos = e.position;
+                const dist = vec3.squaredDistance(player_pos, chest_pos);
+                if (dist < PLAYER_SIZE * PLAYER_SIZE + chests.radius * chests.radius) {
+                    chunk_entities.remove(e.id);
+                    game_info.score += 100;
+                }
+            } else if (e.type == "crab") {
+                //collide nets with crabs
+                const crab_pos = e.position;
+                for (const net of net_manager.nets) {
+                    const dist = vec3.squaredDistance(net.position, crab_pos);
+                    if (dist < CRAB_SIZE * CRAB_SIZE + NET_SIZE * NET_SIZE) {
+                        e.type = "crab_netted";
+                        const normal = getFloorCeilNormalWithRocks(crab_pos).normal;
+                        net.catchCrab(e.id, crab_pos, normal);
+                        //   netted_crab_entity_ids.push(e.id);
+                    }
+                }
+            }
+            if (e.type == "crab_netted") {
+                //collide player with netted crabs
+                const crab_pos = e.position;
+                const dist = vec3.squaredDistance(player_pos, crab_pos);
+                if (dist < PLAYER_SIZE * PLAYER_SIZE + CRAB_SIZE + CRAB_SIZE) {
+                    // const id = netted_crab_entity_ids.indexOf(e.id);
+                    // if (id !== -1) netted_crab_entity_ids.splice(id, 1);
+                    net_manager.removeNetWithCrab(e.id);
+                    chunk_entities.remove(e.id);
+                    game_info.score += 10;
+                }
             }
         }
     }
@@ -487,6 +510,7 @@ function drawUI(): void {
         }
     }
     if (gui.show_help_info.value) {
+        player.resetMouse();
         const main_viewport = ImGui.GetMainViewport();
         const frame_width = 350;
         ImGui.SetNextWindowPos(
@@ -543,7 +567,7 @@ Close window to unpause (ESC)`
 }
 
 const light_uniforms = new Map();
-function setupLights() {
+function updateLights() {
     if (light_toggle) {
         const ambient_intensity = 0.02;
         const ambient_color = [
@@ -580,10 +604,7 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
     const k = e.key.toLocaleLowerCase();
     if (k === "l") light_toggle = !light_toggle;
     if (k === "f") net_manager.addNet(camera.position, camera.getForward());
-    if (k === "escape") {
-        gui.show_help_info.value = !gui.show_help_info.value;
-        player.resetMouse();
-    }
+    if (k === "escape") gui.show_help_info.value = !gui.show_help_info.value;
 });
 
 function getSurroundingChunks(pos: vec3): [number, number][] {

@@ -20,7 +20,7 @@ export class InstancedChunkEntity {
             const z = active_chunks[i + 1];
             const entities = chunk_entities.getChunkEntities(x, z);
             for (const e of entities) {
-                if (e.type !== this.id) continue;
+                if (!e.type.includes(this.id)) continue;
 
                 //reuse existing instances
                 if (index < len) {

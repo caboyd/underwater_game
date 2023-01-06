@@ -5,7 +5,7 @@ import { ChunkEntities } from "./ChunkEntities";
 
 export class Chests {
     instanced_mesh!: IWO.InstancedMesh;
-    radius: number = 0.4;
+    radius: number = 1.5;
 
     private constructor() {}
 

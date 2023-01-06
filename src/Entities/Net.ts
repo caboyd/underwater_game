@@ -11,7 +11,10 @@ const tmp = vec3.create();
 class Net {
     position: vec3;
     forward: vec3;
+    normal: vec3 = vec3.fromValues(0, 1, 0);
     velocity: vec3 = vec3.create();
+    locked: boolean = false;
+    crab_entity_id = -1;
 
     constructor(pos: vec3, forward: vec3) {
         this.position = vec3.clone(pos);
@@ -20,10 +23,23 @@ class Net {
         vec3.scale(this.velocity, this.forward, SPEED);
     }
 
+    catchCrab(crab_entity_id: number, crab_pos: vec3, normal: vec3) {
+        this.crab_entity_id = crab_entity_id;
+        vec3.copy(this.position, crab_pos);
+        vec3.copy(this.normal, normal);
+        vec3.scale(this.normal, this.normal, 0.25);
+
+        vec3.sub(this.position, this.position, this.normal);
+        vec3.normalize(this.normal, this.normal);
+        this.locked = true;
+    }
+
     update(
         delta_ms: number,
         floorceilnormal_func: (pos: vec3, collision_radius?: number) => { floor: number; ceil: number; normal: vec3 }
     ): boolean {
+        if (this.locked) return true;
+
         const delta_s = delta_ms / 1000;
 
         //apply velocity
@@ -48,7 +64,10 @@ class Net {
     }
 
     render(mesh_instance: IWO.MeshInstance, renderer: IWO.Renderer, view: mat4, proj: mat4) {
-        mat4.fromTranslation(mesh_instance.model_matrix, this.position);
+        //mat4.fromTranslation(mesh_instance.model_matrix, this.position);
+        const center = vec3.add(vec3.create(), this.position, this.normal);
+        mat4.targetTo(mesh_instance.model_matrix, this.position, center, [0, 0, -1]);
+        mat4.rotateX(mesh_instance.model_matrix, mesh_instance.model_matrix, -Math.PI / 2);
         mesh_instance.render(renderer, view, proj);
     }
 }
@@ -81,5 +100,10 @@ export class NetManager {
         for (const net of this.nets) {
             net.render(this.mesh_instance, renderer, view, proj);
         }
+    }
+
+    removeNetWithCrab(crab_entity_id: number) {
+        const id = this.nets.findIndex((v) => v.crab_entity_id === crab_entity_id);
+        if (id !== -1) this.nets.splice(id, 1);
     }
 }
