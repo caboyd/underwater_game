@@ -42,8 +42,10 @@ export class Crabs extends InstancedChunkEntity {
         x: number,
         y: number,
         z: number,
-        velocity: vec3 = [1, 0, 0]
+        velocity: vec3 = vec3.fromValues(Math.random() * 2 - 1, 0, Math.random() * 2 - 1)
+        //velocity: vec3 = vec3.fromValues(0.7, 0, -0.7)
     ) {
+        vec3.normalize(velocity, velocity);
         const mat = mat4.create();
         const pos = vec3.fromValues(x, floor, z);
         //push crabs out of floor
@@ -51,11 +53,11 @@ export class Crabs extends InstancedChunkEntity {
         vec3.add(pos, pos, vec3.scale(tmp, normal, 0.01));
         pos[1] += 0.07;
 
-        const center = vec3.add(tmp, pos, normal);
-        mat4.targetTo(mat, pos, center, [0, 0, 1]);
-        mat4.rotateX(mat, mat, -Math.PI / 2);
+        const right = vec3.cross(vec3.create(), velocity, normal);
+        const target = vec3.add(tmp, pos, right);
+        mat4.targetTo(mat, pos, target, normal);
 
-        //mat4.rotateY(mat, mat, Math.PI * Math.random());
+
         chunked_entities.insert(x, z, {
             type: this.type,
             position: pos,

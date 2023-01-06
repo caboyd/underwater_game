@@ -351,26 +351,6 @@ function update(delta_ms: number) {
                     }
                 }
             }
-            if (e.type == crabs.type) {
-                if (!e.velocity) throw "crab missing velocity";
-                vec3.copy(last_pos, e.position);
-
-                //apply velocity
-                vec3.scale(tmp_vel, e.velocity, delta_s);
-                vec3.add(e.position, e.position, tmp_vel);
-
-                const { floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position);
-
-                //apply collision
-                if (ceil - floor < CRAB_SIZE) vec3.copy(e.position, last_pos);
-                if (ceil - e.position[1] < CRAB_SIZE) e.position[1] = ceil - CRAB_SIZE;
-                if (e.position[1] - floor < CRAB_SIZE)
-                    e.position[1] = Math.min(floor + CRAB_SIZE, e.position[1] + CRAB_SIZE);
-
-                chunk_entities.remove(e.id);
-                crabs.addCrab(chunk_entities, floor, normal, e.position[0], e.position[1], e.position[2], e.velocity);
-            }
-
             if (e.type == "crab_netted") {
                 //collide player with netted crabs
                 const crab_pos = e.position;
@@ -382,6 +362,62 @@ function update(delta_ms: number) {
                     chunk_entities.remove(e.id);
                     game_info.score += 10;
                 }
+            }
+
+            if (e.type == crabs.type) {
+                if (!e.velocity) throw "crab missing velocity";
+                vec3.copy(last_pos, e.position);
+
+                if (vec3.len(e.velocity) === 0) continue;
+
+                //apply velocity
+                vec3.scale(tmp_vel, e.velocity, delta_s);
+                vec3.add(e.position, e.position, tmp_vel);
+
+                let { floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position);
+
+                //apply collision
+                if (ceil - floor < CRAB_SIZE) {
+                    //try different angle to velocity
+                    //apply velocity
+                    vec3.scale(tmp_vel, e.velocity, (delta_s * 2) / 3);
+                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], Math.PI / 6);
+                    vec3.add(e.position, e.position, tmp_vel);
+                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                }
+                if (ceil - floor < CRAB_SIZE) {
+                    //try different angle to velocity
+                    //apply velocity
+                    vec3.scale(tmp_vel, e.velocity, (delta_s * 2) / 3);
+                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], -Math.PI / 6);
+                    vec3.add(e.position, e.position, tmp_vel);
+                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                }
+                if (ceil - floor < CRAB_SIZE) {
+                    //try different angle to velocity
+                    //apply velocity
+                    vec3.scale(tmp_vel, e.velocity, (delta_s * 1) / 3);
+                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], Math.PI / 3);
+                    vec3.add(e.position, e.position, tmp_vel);
+                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                }
+                if (ceil - floor < CRAB_SIZE) {
+                    //try different angle to velocity
+                    //apply velocity
+                    vec3.scale(tmp_vel, e.velocity, (delta_s * 1) / 3);
+                    vec3.rotateY(tmp_vel, tmp_vel, [0, 0, 0], -Math.PI / 3);
+                    vec3.add(e.position, e.position, tmp_vel);
+                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                }
+                if (ceil - floor < CRAB_SIZE) {
+                    vec3.set(e.velocity, 0, 0, 0);
+                    vec3.copy(e.position, last_pos);
+                }
+                if (ceil - e.position[1] < CRAB_SIZE) e.position[1] = ceil - CRAB_SIZE;
+                if (e.position[1] - floor < CRAB_SIZE) e.position[1] = floor + CRAB_SIZE;
+
+                chunk_entities.remove(e.id);
+                crabs.addCrab(chunk_entities, floor, normal, e.position[0], e.position[1], e.position[2], e.velocity);
             }
         }
     }

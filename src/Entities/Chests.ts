@@ -51,8 +51,7 @@ export class Chests {
                 const pos = vec3.fromValues(x, floor, z);
                 const center = vec3.add(vec3.create(), pos, normal);
                 mat4.targetTo(mat, pos, center, [0, 0, 1]);
-                if (y === floor) mat4.rotateX(mat, mat, Math.PI / 2);
-                else mat4.rotateX(mat, mat, -Math.PI / 2);
+                mat4.rotateX(mat, mat, -Math.PI / 2);
                 mat4.rotateY(mat, mat, Math.PI * Math.random());
                 chunked_entities.insert(x, z, { type: c.type, position: pos, instance: mat4.clone(mat) });
                 break;
