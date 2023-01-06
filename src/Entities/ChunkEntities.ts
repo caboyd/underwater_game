@@ -41,14 +41,17 @@ export class ChunkEntities {
         const x_chunk = Math.floor((index % 10_000_000) / 100_000);
         const cell_index = index % 100_000;
         const chunk_entities = this.entities[z_chunk][x_chunk];
+
         if (cell_index >= chunk_entities.length) return false;
-        if (this.entities.length >= 2) {
+
+        if (this.entities.length >= 2 && cell_index !== chunk_entities.length - 1) {
             //swap last element into this spot and update its entity id
+            //console.log(chunk_entities[cell_index].type);
             const e = chunk_entities.pop()!;
             e.id = index;
             chunk_entities[cell_index] = e;
-        }
-        chunk_entities.length--;
+        } else chunk_entities.length--;
+
         return true;
     }
 }

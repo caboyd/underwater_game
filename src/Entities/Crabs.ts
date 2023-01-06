@@ -4,6 +4,8 @@ import { HeightMap } from "../heightmap/HeightMap";
 import { ChunkEntities } from "./ChunkEntities";
 import { InstancedChunkEntity } from "./InstancedChunkEntity";
 
+const tmp = vec3.create();
+
 export class Crabs extends InstancedChunkEntity {
     constructor(
         height_map: HeightMap,
@@ -26,22 +28,39 @@ export class Crabs extends InstancedChunkEntity {
                 const z = Math.random() * h;
                 const y = height_map.validFloorPosition(x, z, 1);
                 if (y === false) continue;
-                const { floor: floor, normal: normal } = floor_func([x, y, z]);
-                mat4.identity(mat);
-                const pos = vec3.fromValues(x, floor, z);
-                //push crabs out of floor
-                if (Math.abs(y - floor) <= Number.EPSILON) {
-                    vec3.add(pos, pos, vec3.scale(tmp, normal, 0.005));
-                    pos[1] += 0.07;
-                }
-                const center = vec3.add(tmp, pos, normal);
-                mat4.targetTo(mat, pos, center, [0, 0, 1]);
-                mat4.rotateX(mat, mat, -Math.PI / 2);
-
-                //mat4.rotateY(mat, mat, Math.PI * Math.random());
-                chunked_entities.insert(x, z, { type: this.type, position: pos, instance: mat4.clone(mat) });
+                const { floor, normal } = floor_func([x, y, z]);
+                this.addCrab(chunked_entities, floor, normal, x, y, z);
                 break;
             }
         }
+    }
+
+    public addCrab(
+        chunked_entities: ChunkEntities,
+        floor: number,
+        normal: vec3,
+        x: number,
+        y: number,
+        z: number,
+        velocity: vec3 = [1, 0, 0]
+    ) {
+        const mat = mat4.create();
+        const pos = vec3.fromValues(x, floor, z);
+        //push crabs out of floor
+
+        vec3.add(pos, pos, vec3.scale(tmp, normal, 0.01));
+        pos[1] += 0.07;
+
+        const center = vec3.add(tmp, pos, normal);
+        mat4.targetTo(mat, pos, center, [0, 0, 1]);
+        mat4.rotateX(mat, mat, -Math.PI / 2);
+
+        //mat4.rotateY(mat, mat, Math.PI * Math.random());
+        chunked_entities.insert(x, z, {
+            type: this.type,
+            position: pos,
+            instance: mat,
+            velocity: vec3.clone(velocity),
+        });
     }
 }

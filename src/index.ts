@@ -310,6 +310,7 @@ function requestUpdate() {
 }
 
 function update(delta_ms: number) {
+    const delta_s = delta_ms / 1000;
     let io = ImGui.GetIO();
     player.mouse_active = !io.WantCaptureMouse;
 
@@ -321,9 +322,14 @@ function update(delta_ms: number) {
     //find the 4 chunks surrounding player
     const active_chunks = getSurroundingChunks(camera.position);
     const player_pos = vec3.clone(camera.position);
+    const tmp_vel = vec3.create();
+    const last_pos = vec3.create();
+
     for (const chunk of active_chunks) {
         const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
-        for (const e of entities) {
+
+        for (let i = entities.length - 1; i >= 0; i--) {
+            const e = entities[i];
             if (e.type == chests.type) {
                 const chest_pos = e.position;
                 const dist = vec3.squaredDistance(player_pos, chest_pos);
@@ -345,6 +351,26 @@ function update(delta_ms: number) {
                     }
                 }
             }
+            if (e.type == crabs.type) {
+                if (!e.velocity) throw "crab missing velocity";
+                vec3.copy(last_pos, e.position);
+
+                //apply velocity
+                vec3.scale(tmp_vel, e.velocity, delta_s);
+                vec3.add(e.position, e.position, tmp_vel);
+
+                const { floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position);
+
+                //apply collision
+                if (ceil - floor < CRAB_SIZE) vec3.copy(e.position, last_pos);
+                if (ceil - e.position[1] < CRAB_SIZE) e.position[1] = ceil - CRAB_SIZE;
+                if (e.position[1] - floor < CRAB_SIZE)
+                    e.position[1] = Math.min(floor + CRAB_SIZE, e.position[1] + CRAB_SIZE);
+
+                chunk_entities.remove(e.id);
+                crabs.addCrab(chunk_entities, floor, normal, e.position[0], e.position[1], e.position[2], e.velocity);
+            }
+
             if (e.type == "crab_netted") {
                 //collide player with netted crabs
                 const crab_pos = e.position;
@@ -387,7 +413,7 @@ function updateVisibleChunks() {
         floor_chunk.mesh.instances = active_chunks.length / 2;
 
         chests.updateVisibleInstances(active_chunks, chunk_entities);
-        crabs.updateVisibleInstances(active_chunks, chunk_entities);
+
         for (const rocks of rocks_array) rocks.updateVisibleInstances(active_chunks, chunk_entities);
         for (const doodads of doodads_array) {
             if (doodads.type.includes("3d")) doodads.updateVisibleInstances(active_chunks, chunk_entities);
@@ -395,6 +421,7 @@ function updateVisibleChunks() {
 
         last_chunks = new Uint16Array(active_chunks);
     }
+    crabs.updateVisibleInstances(active_chunks, chunk_entities);
 }
 
 function drawScene() {
