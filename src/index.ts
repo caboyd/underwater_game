@@ -371,6 +371,19 @@ function update(delta_ms: number) {
                 let stuck = false;
                 if (vec3.len(e.velocity) === 0) continue;
 
+                const chance = 5; //% chance to turn
+                const angle = (Math.random() - 0.5) / 2;
+                if (Math.random() * 100 > 100 - chance) vec3.rotateY(e.velocity, e.velocity, [0, 0, 0], angle);
+
+                vec3.normalize(e.velocity, e.velocity);
+                //make crabs near player move 2.5x speed away from player
+                if (vec3.dist(camera.position, e.position) < 8.0) {
+                    vec3.sub(e.velocity, e.position, camera.position);
+                    e.velocity[1] = 0;
+                    vec3.normalize(e.velocity, e.velocity);
+                    vec3.scale(e.velocity, e.velocity, 2.5);
+                }
+
                 //apply velocity
                 vec3.scale(tmp_vel, e.velocity, delta_s);
                 vec3.add(e.position, e.position, tmp_vel);
@@ -388,39 +401,20 @@ function update(delta_ms: number) {
                     if (ceil - floor >= CRAB_SIZE) break;
                 }
 
-                if (ceil - floor < CRAB_SIZE) {
-                    stuck = true;
-                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
-                }
-                if (!stuck) {
-                    //check collision with other crabs in this chunk
-                    for (const other of entities) {
-                        if (other.type !== crabs.type) continue;
-                        if (other.id === e.id) continue;
-                        const dist = vec3.sqrDist(e.position, other.position);
-                        if (dist < CRAB_SIZE * CRAB_SIZE * 1.25) {
-                            stuck = true;
-                            // break;
-                        }
+                //check collision with other crabs in this chunk
+                for (const other of entities) {
+                    if (other.type !== crabs.type) continue;
+                    if (other.id === e.id) continue;
+                    const dist = vec3.sqrDist(e.position, other.position);
+                    if (dist < CRAB_SIZE * CRAB_SIZE * 1.25) {
+                        stuck = true;
+                        // break;
                     }
                 }
 
                 if (stuck) {
                     vec3.set(e.velocity, 0, 0, 0);
                     vec3.copy(e.position, last_pos);
-                } else {
-                    const chance = 5; //% chance to turn
-                    const angle = (Math.random() - 0.5) / 2;
-                    if (Math.random() * 100 > 100 - chance) vec3.rotateY(e.velocity, e.velocity, [0, 0, 0], angle);
-
-                    vec3.normalize(e.velocity, e.velocity);
-                    //make crabs near player move 2.5x speed away from player
-                    if (vec3.dist(camera.position, e.position) < 8.0) {
-                        vec3.sub(e.velocity, e.position, camera.position);
-                        e.velocity[1] = 0;
-                        vec3.normalize(e.velocity, e.velocity);
-                        vec3.scale(e.velocity, e.velocity, 2.5);
-                    }
                 }
 
                 e.position[1] = floor;
