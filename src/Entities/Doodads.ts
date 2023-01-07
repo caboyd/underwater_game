@@ -7,7 +7,7 @@ import { InstancedChunkEntity } from "./InstancedChunkEntity";
 export class Doodads extends InstancedChunkEntity {
     constructor(
         height_map: HeightMap,
-        chunked_entities: ChunkEntities,
+        chunk_entities: ChunkEntities,
         floor_func: (pos: vec3) => { floor: number; normal: vec3 },
         id: string,
         instanced_mesh: IWO.InstancedMesh,
@@ -29,14 +29,15 @@ export class Doodads extends InstancedChunkEntity {
 
                 const mat = mat4.create();
                 if (is_billboard) {
+                    //NOTE: Billboards are not added to chunk entities
                     mat4.fromTranslation(mat, pos);
                     this.instanced_mesh.addInstance(mat);
                 } else {
                     const center = vec3.add(vec3.create(), pos, normal);
                     mat4.targetTo(mat, pos, center, [0, 0, 1]);
                     mat4.rotateX(mat, mat, -Math.PI / 2);
+                    chunk_entities.insert(x, z, { type: this.type, position: pos, instance: mat });
                 }
-                chunked_entities.insert(x, z, { type: this.type, position: pos, instance: mat });
                 break;
             }
         }

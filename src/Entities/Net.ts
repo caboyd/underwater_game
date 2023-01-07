@@ -14,7 +14,6 @@ class Net {
     normal: vec3 = vec3.fromValues(0, 1, 0);
     velocity: vec3 = vec3.create();
     has_crab: boolean = false;
-    crab_entity_id = -1;
 
     constructor(pos: vec3, forward: vec3) {
         this.position = vec3.clone(pos);
@@ -25,8 +24,7 @@ class Net {
         vec3.scale(this.velocity, this.forward, SPEED);
     }
 
-    catchCrab(crab_entity_id: number, crab_pos: vec3, normal: vec3) {
-        this.crab_entity_id = crab_entity_id;
+    catchCrab(crab_pos: vec3, normal: vec3) {
         vec3.copy(this.position, crab_pos);
         vec3.copy(this.normal, normal);
         vec3.scale(this.normal, this.normal, 0.25);
@@ -104,8 +102,8 @@ export class NetManager {
         }
     }
 
-    removeNetWithCrab(crab_entity_id: number) {
-        const id = this.nets.findIndex((v) => v.crab_entity_id === crab_entity_id);
+    removeNetWithCrab(pos: vec3) {
+        const id = this.nets.findIndex((net) => vec3.sqrDist(pos, net.position) < 1.0 && net.has_crab);
         if (id !== -1) this.nets.splice(id, 1);
     }
 }

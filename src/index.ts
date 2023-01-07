@@ -1,3 +1,4 @@
+import { ifError } from "assert";
 import { glMatrix, mat4, vec3 } from "gl-matrix";
 import * as ImGui from "imgui-js/imgui";
 import * as ImGui_Impl from "imgui-js/imgui_impl";
@@ -71,7 +72,7 @@ class Static<T> {
 const gui = {
     show_frame_info: new Static<boolean>(true),
     show_game_info: new Static<boolean>(true),
-    show_help_info: new Static<boolean>(false),
+    show_help_info: new Static<boolean>(true),
 };
 
 const game_info = {
@@ -320,13 +321,13 @@ function update(delta_ms: number) {
     net_manager.update(delta_ms, getFloorCeilNormalWithRocks);
 
     //find the 4 chunks surrounding player
-    const active_chunks = getSurroundingChunks(camera.position);
+    const active_chunks = noise_tex.generateCellsInView(gl, camera.position, camera.getForward(), 0, 0, 4);
     const player_pos = vec3.clone(camera.position);
     const tmp_vel = vec3.create();
     const last_pos = vec3.create();
 
-    for (const chunk of active_chunks) {
-        const entities = chunk_entities.getChunkEntities(chunk[0], chunk[1]);
+    for (let i = 0; i < active_chunks.length; i += 2) {
+        const entities = chunk_entities.getChunkEntities(active_chunks[i], active_chunks[i + 1]);
 
         for (let i = entities.length - 1; i >= 0; i--) {
             const e = entities[i];
@@ -346,7 +347,7 @@ function update(delta_ms: number) {
                     if (dist < CRAB_SIZE * CRAB_SIZE + NET_SIZE * NET_SIZE) {
                         e.type = "crab_netted";
                         const normal = getFloorCeilNormalWithRocks(crab_pos).normal;
-                        net.catchCrab(e.id, crab_pos, normal);
+                        net.catchCrab(crab_pos, normal);
                         //   netted_crab_entity_ids.push(e.id);
                     }
                 }
@@ -358,7 +359,7 @@ function update(delta_ms: number) {
                 if (dist < PLAYER_SIZE * PLAYER_SIZE + CRAB_SIZE + CRAB_SIZE) {
                     // const id = netted_crab_entity_ids.indexOf(e.id);
                     // if (id !== -1) netted_crab_entity_ids.splice(id, 1);
-                    net_manager.removeNetWithCrab(e.id);
+                    net_manager.removeNetWithCrab(e.position);
                     chunk_entities.remove(e.id);
                     game_info.score += 10;
                 }
@@ -367,7 +368,7 @@ function update(delta_ms: number) {
             if (e.type == crabs.type) {
                 if (!e.velocity) throw "crab missing velocity";
                 vec3.copy(last_pos, e.position);
-
+                let stuck = false;
                 if (vec3.len(e.velocity) === 0) continue;
 
                 //apply velocity
@@ -388,9 +389,38 @@ function update(delta_ms: number) {
                 }
 
                 if (ceil - floor < CRAB_SIZE) {
+                    stuck = true;
+                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                }
+                if (!stuck) {
+                    //check collision with other crabs in this chunk
+                    for (const other of entities) {
+                        if (other.type !== crabs.type) continue;
+                        if (other.id === e.id) continue;
+                        const dist = vec3.sqrDist(e.position, other.position);
+                        if (dist < CRAB_SIZE * CRAB_SIZE * 1.25) {
+                            stuck = true;
+                            // break;
+                        }
+                    }
+                }
+
+                if (stuck) {
                     vec3.set(e.velocity, 0, 0, 0);
                     vec3.copy(e.position, last_pos);
-                    ({ floor, ceil, normal } = getFloorCeilNormalWithRocks(e.position));
+                } else {
+                    const chance = 5; //% chance to turn
+                    const angle = (Math.random() - 0.5) / 2;
+                    if (Math.random() * 100 > 100 - chance) vec3.rotateY(e.velocity, e.velocity, [0, 0, 0], angle);
+
+                    vec3.normalize(e.velocity, e.velocity);
+                    //make crabs near player move 2.5x speed away from player
+                    if (vec3.dist(camera.position, e.position) < 8.0) {
+                        vec3.sub(e.velocity, e.position, camera.position);
+                        e.velocity[1] = 0;
+                        vec3.normalize(e.velocity, e.velocity);
+                        vec3.scale(e.velocity, e.velocity, 2.5);
+                    }
                 }
 
                 e.position[1] = floor;
